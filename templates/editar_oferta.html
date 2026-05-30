@@ -1,0 +1,313 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<div class="page-header">
+    <h1 class="page-title">Editar Oferta #{{ oferta.id }}</h1>
+    <a href="{{ url_for('admin') }}" class="btn-sm btn-secondary">← Voltar</a>
+</div>
+
+{% set dest_atual = oferta.destinatario or 'todos' %}
+{% set dest_lista = dest_atual.split(',') if dest_atual != 'todos' else [] %}
+
+<div class="form-card">
+    <form method="POST" action="{{ url_for('editar_oferta', id=oferta.id) }}" id="form-editar">
+        <div class="form-grid">
+            <div class="form-group" style="grid-column: span 2;">
+                <label for="produto">Nome do Produto</label>
+                <input type="text" id="produto" name="produto"
+                       required value="{{ oferta.produto }}">
+                <div class="product-history" id="product-history" aria-live="polite"></div>
+            </div>
+            <div class="form-group">
+                <label for="unidade">Unidade de Medida</label>
+                <select id="unidade" name="unidade">
+                    <option value="un"  {% if oferta.unidade == 'un'  %}selected{% endif %}>Unidade (un)</option>
+                    <option value="kg"  {% if oferta.unidade == 'kg'  %}selected{% endif %}>Quilo (kg)</option>
+                    <option value="g"   {% if oferta.unidade == 'g'   %}selected{% endif %}>Grama (g)</option>
+                    <option value="L"   {% if oferta.unidade == 'L'   %}selected{% endif %}>Litro (L)</option>
+                    <option value="ml"  {% if oferta.unidade == 'ml'  %}selected{% endif %}>Mililitro (ml)</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="preco_oferta">Preço Oferta (R$)</label>
+                <input type="text" id="preco_oferta" name="preco_oferta"
+                       required value="{{ '%.2f'|format(oferta.preco_oferta)|replace('.', ',') }}" class="money-mask" oninput="maskMoney(this)">
+            </div>
+            <div class="form-group">
+                <label for="preco_club">Preço Clube (R$)</label>
+                <input type="text" id="preco_club" name="preco_club"
+                       value="{{ '%.2f'|format(oferta.preco_club)|replace('.', ',') if oferta.preco_club else '' }}"
+                       placeholder="Opcional" class="money-mask" oninput="maskMoney(this)">
+            </div>
+            <div class="form-group">
+                <label for="data_cadastro">Data da Oferta</label>
+                <input type="date" id="data_cadastro" name="data_cadastro"
+                       required value="{{ oferta.data_cadastro }}">
+            </div>
+            <div class="form-group">
+                <label for="data_validade">Data de Validade (Opcional)</label>
+                <input type="date" id="data_validade" name="data_validade"
+                       value="{{ oferta.data_validade if oferta.data_validade else '' }}">
+            </div>
+
+            <!-- SELETOR DE LOJAS -->
+            <div class="form-group" style="grid-column: 1 / -1;">
+                <label>🏪 Destinatário</label>
+                <div class="dest-selector" id="dest-selector-editar">
+
+                    <!-- Toggle "Todas" — marcado se dest_atual == 'todos' -->
+                    <div class="dest-toggle-all {{ 'checked' if dest_atual == 'todos' else '' }}"
+                         id="toggle-all-editar"
+                         onclick="toggleAll('editar')">
+                        <input type="checkbox" name="dest_todos" id="dest_todos_editar"
+                               value="1" {{ 'checked' if dest_atual == 'todos' else '' }}>
+                        <span class="checkmark">{{ '✓' if dest_atual == 'todos' else '' }}</span>
+                        <span>⭐ Todas as lojas</span>
+                    </div>
+
+                    <!-- Grid de lojas -->
+                    <div class="dest-filiais-grid" id="filiais-grid-editar">
+                        {% for l in lojas_disponiveis %}
+                        {% set is_checked = l in dest_lista %}
+                        <div class="dest-item {{ 'checked' if is_checked else '' }}"
+                             id="dest-item-ed-{{ l }}"
+                             onclick="toggleFilial(this, 'editar')">
+                            <input type="checkbox" name="destinatarios"
+                                   value="{{ l }}"
+                                   {{ 'checked' if is_checked else '' }}
+                                   {{ 'disabled' if dest_atual == 'todos' else '' }}>
+                            <span class="checkmark">{{ '✓' if is_checked else '' }}</span>
+                            <span>🏪 Loja {{ l }}</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <button type="submit" class="btn-primary">💾 Salvar Alterações</button>
+    </form>
+</div>
+
+<!-- Script do seletor -->
+<script>
+function maskMoney(input) {
+    var v = input.value.replace(/\D/g, '');
+    if (v.length === 0) { input.value = ''; return; }
+    while (v.length < 3) v = '0' + v;
+    var intPart = v.slice(0, -2);
+    var decPart = v.slice(-2);
+    intPart = intPart.replace(/^0+/, '');
+    if (intPart === '') intPart = '0';
+    input.value = intPart + ',' + decPart;
+    
+    validarPrecos();
+}
+
+function validarPrecos() {
+    const inputOferta = document.getElementById('preco_oferta');
+    const inputClub = document.getElementById('preco_club');
+    if (!inputOferta || !inputClub) return;
+    
+    const valOferta = parseFloat(inputOferta.value.replace(/\./g, '').replace(',', '.')) || 0;
+    const valClub = parseFloat(inputClub.value.replace(/\./g, '').replace(',', '.')) || 0;
+    
+    let warningEl = document.getElementById('price-validation-warning');
+    if (!warningEl) {
+        warningEl = document.createElement('div');
+        warningEl.id = 'price-validation-warning';
+        warningEl.className = 'field-warning';
+        warningEl.style.color = 'var(--danger-hover)';
+        warningEl.style.fontSize = '0.75rem';
+        warningEl.style.marginTop = '4px';
+        inputClub.parentNode.appendChild(warningEl);
+    }
+    
+    if (valClub > 0 && valClub >= valOferta) {
+        inputClub.style.borderColor = 'var(--danger)';
+        warningEl.innerText = '⚠️ Preço Clube deve ser menor que o preço de Oferta!';
+    } else {
+        inputClub.style.borderColor = '';
+        warningEl.innerText = '';
+    }
+}
+
+function validateForm() {
+    const inputOferta = document.getElementById('preco_oferta');
+    const inputClub = document.getElementById('preco_club');
+    if (!inputOferta || !inputClub) return true;
+    
+    const valOferta = parseFloat(inputOferta.value.replace(/\./g, '').replace(',', '.')) || 0;
+    const valClub = parseFloat(inputClub.value.replace(/\./g, '').replace(',', '.')) || 0;
+    
+    if (valClub > 0 && valClub >= valOferta) {
+        alert('Erro de validação: O preço Clube deve ser menor que o preço de Oferta.');
+        return false;
+    }
+    return true;
+}
+
+function debounce(fn, delay) {
+    let timeoutId;
+    return (...args) => {
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => fn(...args), delay);
+    };
+}
+
+function escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, char => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+    }[char]));
+}
+
+function initProductHistory(inputId, targetId, excludeId) {
+    const input = document.getElementById(inputId);
+    const target = document.getElementById(targetId);
+    if (!input || !target) return;
+
+    const renderEmpty = (message = '') => {
+        target.innerHTML = message ? `<span class="history-empty">${message}</span>` : '';
+    };
+
+    const renderItems = (items) => {
+        if (!items.length) {
+            renderEmpty('Sem histórico encontrado para este produto.');
+            return;
+        }
+
+        target.innerHTML = `
+            <div class="history-title">📅 Histórico Recente (Clique para preencher)</div>
+            ${items.map((item, idx) => {
+                const precoOf = escapeHtml(item.preco_oferta);
+                const precoCl = item.preco_club ? escapeHtml(item.preco_club) : '';
+                const unidade = escapeHtml(item.unidade || 'un');
+                const validade = item.data_validade ? escapeHtml(item.data_validade) : '';
+                return `
+                    <div class="history-item" style="cursor: pointer;" data-idx="${idx}">
+                        <div>
+                            <strong>${escapeHtml(item.produto)}</strong>
+                            <span>${escapeHtml(item.data_cadastro)}${validade ? ' · Validade: ' + validade : ''}</span>
+                        </div>
+                        <div class="history-price">
+                            R$ ${precoOf}
+                            ${precoCl ? `<small>Clube R$ ${precoCl}</small>` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('')}
+        `;
+        
+        // Attach click autocompleters
+        target.querySelectorAll('.history-item').forEach(itemEl => {
+            itemEl.addEventListener('click', function() {
+                const idx = parseInt(this.getAttribute('data-idx'));
+                const item = items[idx];
+                
+                document.getElementById('produto').value = item.produto;
+                document.getElementById('unidade').value = item.unidade || 'un';
+                
+                const precoOfEl = document.getElementById('preco_oferta');
+                precoOfEl.value = item.preco_oferta;
+                maskMoney(precoOfEl);
+                
+                const precoClEl = document.getElementById('preco_club');
+                precoClEl.value = item.preco_club || '';
+                if (item.preco_club) {
+                    maskMoney(precoClEl);
+                } else {
+                    validarPrecos();
+                }
+                
+                const valEl = document.getElementById('data_validade');
+                if (valEl) {
+                    valEl.value = item.data_validade || '';
+                }
+                
+                renderEmpty();
+            });
+        });
+    };
+
+    const fetchHistory = debounce(async () => {
+        const query = input.value.trim();
+        if (query.length < 2) {
+            renderEmpty();
+            return;
+        }
+
+        const params = new URLSearchParams({ q: query });
+        if (excludeId) params.set('exclude_id', excludeId);
+        try {
+            const response = await fetch(`{{ url_for('historico_produto') }}?${params.toString()}`);
+            if (!response.ok) throw new Error('Falha ao buscar histórico');
+            const data = await response.json();
+            renderItems(data.items || []);
+        } catch (error) {
+            renderEmpty('Não foi possível carregar o histórico agora.');
+        }
+    }, 250);
+
+    input.addEventListener('input', fetchHistory);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    initProductHistory('produto', 'product-history', {{ oferta.id }});
+    
+    var form = document.getElementById('form-editar');
+    if (form) form.addEventListener('submit', function(e) { if (!validateForm()) e.preventDefault(); });
+    
+    // Add real-time price validation listeners
+    const inputOferta = document.getElementById('preco_oferta');
+    const inputClub = document.getElementById('preco_club');
+    if (inputOferta) inputOferta.addEventListener('input', validarPrecos);
+    if (inputClub) inputClub.addEventListener('input', validarPrecos);
+    
+    // Run validation immediately on load in case fields are prefilled
+    validarPrecos();
+});
+
+function toggleAll(ctx) {
+    const toggleEl = document.getElementById('toggle-all-' + ctx);
+    const checkEl  = document.getElementById('dest_todos_' + ctx);
+    const isTodos  = !checkEl.checked;
+
+    checkEl.checked = isTodos;
+    toggleEl.classList.toggle('checked', isTodos);
+    toggleEl.querySelector('.checkmark').textContent = isTodos ? '✓' : '';
+
+    document.querySelectorAll('#filiais-grid-' + ctx + ' .dest-item').forEach(item => {
+        const cb = item.querySelector('input[type="checkbox"]');
+        if (isTodos) {
+            cb.checked = false;
+            cb.disabled = true;
+            item.classList.remove('checked');
+            item.querySelector('.checkmark').textContent = '';
+        } else {
+            cb.disabled = false;
+        }
+    });
+}
+
+function toggleFilial(el, ctx) {
+    const cb = el.querySelector('input[type="checkbox"]');
+    if (cb.disabled) return;
+    cb.checked = !cb.checked;
+    el.classList.toggle('checked', cb.checked);
+    el.querySelector('.checkmark').textContent = cb.checked ? '✓' : '';
+
+    const algumMarcado = [...document.querySelectorAll('#filiais-grid-' + ctx + ' input[type="checkbox"]')]
+        .some(c => c.checked);
+    if (!algumMarcado) {
+        toggleAll(ctx);
+    }
+}
+</script>
+
+{% endblock %}

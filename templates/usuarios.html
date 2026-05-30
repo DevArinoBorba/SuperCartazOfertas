@@ -1,0 +1,147 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<div class="page-header">
+    <h1 class="page-title">Gerenciar Usuários</h1>
+</div>
+
+<!-- Formulário de Cadastro -->
+<div class="form-card">
+    <h3>➕ Adicionar Novo Usuário</h3>
+    <form method="POST" action="{{ url_for('admin_usuarios') }}">
+        <div class="form-grid grid-users">
+            <div class="form-group">
+                <label for="username">Usuário (Funcionário)</label>
+                <input type="text" id="username" name="username" required
+                       placeholder="nome de usuário">
+            </div>
+            <div class="form-group">
+                <label for="password">Senha</label>
+                <div class="password-wrapper">
+                    <input type="password" id="password" name="password" required
+                           placeholder="senha de acesso" autocomplete="new-password" minlength="4">
+                    <button type="button" class="password-toggle" onclick="toggleSenha('password', this)" tabindex="-1">👁️</button>
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="role">Perfil</label>
+                <select id="role" name="role" onchange="toggleLojaField()">
+                    <option value="user">Funcionário</option>
+                    <option value="admin">Admin</option>
+                </select>
+            </div>
+            <div class="form-group" id="group-loja">
+                <label for="loja">Loja</label>
+                <select id="loja" name="loja" required>
+                    <option value="" disabled selected>Selecione a loja</option>
+                    {% for l in lojas_disponiveis %}
+                    <option value="{{ l }}">Loja {{ l }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group" style="justify-content: flex-end;">
+                <button type="submit" class="btn-primary" style="margin-top: 1.75rem; padding: 0.7rem 1.5rem;">
+                    Cadastrar
+                </button>
+            </div>
+        </div>
+    </form>
+</div>
+
+<!-- Tabela de Usuários -->
+<div class="table-container">
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Usuário</th>
+                <th>Senha</th>
+                <th>Perfil</th>
+                <th>Loja</th>
+                <th style="text-align: right;">Ações</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for u in usuarios %}
+            <tr>
+                <td style="color: var(--text-dim); font-size: 0.8rem;">#{{ u.id }}</td>
+                <td><strong>{{ u.username }}</strong></td>
+                <td style="color: var(--text-muted);">Protegida</td>
+                <td>
+                    {% if u.role == 'admin' %}
+                        <span class="badge-admin">Admin</span>
+                    {% else %}
+                        <span class="badge-filial">Funcionário</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if u.role == 'admin' %}
+                        <span style="color: var(--text-dim);">—</span>
+                    {% else %}
+                        <span class="badge-filial">Loja {{ u.loja or '—' }}</span>
+                    {% endif %}
+                </td>
+                <td style="text-align: right;">
+                    <div style="display: flex; gap: 5px; justify-content: flex-end; flex-wrap: wrap;">
+                        <form action="{{ url_for('admin_usuario_senha', id=u.id) }}"
+                              method="POST" style="display:inline;" id="senha-form-{{ u.id }}">
+                            <input type="password" name="nova_senha" placeholder="Nova senha" required minlength="4"
+                                   style="background:var(--bg-dark);border:1px solid var(--border);border-radius:4px;color:var(--text-primary);padding:0.3rem 0.5rem;font-size:0.75rem;width:100px;">
+                            <button type="button" class="btn-sm btn-dark-gold"
+                                    onclick="showConfirmModal('Alterar Senha', 'Alterar a senha do usuário {{ u.username }}?', function(){ document.getElementById('senha-form-{{ u.id }}').submit(); })">
+                                🔑 Senha
+                            </button>
+                        </form>
+                        {% if session['user_id'] != u.id %}
+                            <form action="{{ url_for('delete_usuario', id=u.id) }}"
+                                  method="POST" style="display:inline;" id="delete-user-form-{{ u.id }}">
+                                <button type="button" class="btn-sm btn-danger"
+                                        onclick="showConfirmModal('Excluir Usuário', 'Excluir permanentemente o usuário {{ u.username }}?', function(){ document.getElementById('delete-user-form-{{ u.id }}').submit(); })">
+                                    Excluir
+                                </button>
+                            </form>
+                        {% else %}
+                            <span style="font-size: 0.8rem; color: var(--gold); font-weight: 600;">
+                                ★ Você
+                            </span>
+                        {% endif %}
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<script>
+function toggleSenha(id, btn) {
+    var el = document.getElementById(id);
+    if (el.type === 'password') {
+        el.type = 'text';
+        btn.textContent = '🙈';
+    } else {
+        el.type = 'password';
+        btn.textContent = '👁️';
+    }
+}
+
+function toggleLojaField() {
+    var role = document.getElementById('role').value;
+    var groupLoja = document.getElementById('group-loja');
+    var lojaSelect = document.getElementById('loja');
+    if (role === 'admin') {
+        groupLoja.style.display = 'none';
+        lojaSelect.removeAttribute('required');
+        lojaSelect.value = '';
+    } else {
+        groupLoja.style.display = 'flex';
+        lojaSelect.setAttribute('required', 'required');
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    toggleLojaField();
+});
+</script>
+{% endblock %}

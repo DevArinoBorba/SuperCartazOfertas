@@ -1,0 +1,567 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<!-- Cabeçalho -->
+<div class="page-header">
+    <h1 class="page-title">Cadastrar Nova Oferta</h1>
+    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+        <a href="{{ url_for('editor', tipo='a4') }}"
+           class="btn-sm btn-secondary">✏️ Layout Padrão A4</a>
+        <a href="{{ url_for('editor', tipo='pequeno') }}"
+           class="btn-sm btn-secondary">✏️ Layout Padrão Pequeno</a>
+    </div>
+</div>
+
+<!-- Formulário de Cadastro -->
+<div class="form-card">
+    <form method="POST" action="{{ url_for('admin') }}" id="form-cadastro">
+        <div class="form-grid">
+            <div class="form-group" style="grid-column: span 2;">
+                <label for="produto">Nome do Produto</label>
+                <input type="text" id="produto" name="produto"
+                       required placeholder="Ex: Arroz Tipo 1 Marca X 5kg">
+                <div class="product-history" id="product-history" aria-live="polite"></div>
+            </div>
+            <div class="form-group">
+                <label for="unidade">Unidade de Medida</label>
+                <select id="unidade" name="unidade">
+                    <option value="un">Unidade (un)</option>
+                    <option value="kg">Quilo (kg)</option>
+                    <option value="g">Grama (g)</option>
+                    <option value="L">Litro (L)</option>
+                    <option value="ml">Mililitro (ml)</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="preco_oferta">Preço Oferta (R$)</label>
+                <input type="text" id="preco_oferta" name="preco_oferta"
+                       required placeholder="0,00" class="money-mask" oninput="maskMoney(this)" onfocus="this.select()">
+            </div>
+            <div class="form-group">
+                <label for="preco_club">Preço Clube (R$)</label>
+                <input type="text" id="preco_club" name="preco_club"
+                       placeholder="0,00 (opcional)" class="money-mask" oninput="maskMoney(this)">
+            </div>
+            <div class="form-group">
+                <label for="data_cadastro">Data da Oferta</label>
+                <input type="date" id="data_cadastro" name="data_cadastro"
+                       required value="{{ data_selecionada if data_selecionada else '' }}">
+            </div>
+            <div class="form-group">
+                <label for="data_validade">Data de Validade (Opcional)</label>
+                <input type="date" id="data_validade" name="data_validade">
+            </div>
+
+            <!-- SELETOR DE LOJAS -->
+            <div class="form-group" style="grid-column: 1 / -1;">
+                <label>🏪 Destinatário</label>
+                <div class="dest-selector" id="dest-selector-cadastro">
+
+                    <!-- Toggle "Todas" -->
+                    <div class="dest-toggle-all checked" id="toggle-all-cadastro"
+                         onclick="toggleAll('cadastro')">
+                        <input type="checkbox" name="dest_todos" id="dest_todos_cadastro"
+                               value="1" checked>
+                        <span class="checkmark">✓</span>
+                        <span>⭐ Todas as lojas</span>
+                    </div>
+
+                    <!-- Grid de lojas -->
+                    <div class="dest-filiais-grid" id="filiais-grid-cadastro">
+                        {% for l in lojas_disponiveis %}
+                        <div class="dest-item" id="dest-item-cad-{{ l }}"
+                             onclick="toggleFilial(this, 'cadastro')">
+                            <input type="checkbox" name="destinatarios"
+                                   value="{{ l }}" disabled>
+                            <span class="checkmark"></span>
+                            <span>🏪 Loja {{ l }}</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            document.addEventListener("DOMContentLoaded", function () {
+                var inputData = document.getElementById("data_cadastro");
+                if (!inputData.value) {
+                    var hoje = new Date();
+                    var offset = hoje.getTimezoneOffset() * 60000;
+                    inputData.value = (new Date(hoje - offset)).toISOString().slice(0, 10);
+                }
+            });
+        </script>
+
+        <button type="submit" class="btn-primary">➕ Cadastrar Oferta</button>
+    </form>
+</div>
+
+<hr class="gold-divider">
+
+<!-- Importação em lote -->
+<div class="form-card">
+    <h3>Importar Ofertas por Excel/CSV</h3>
+    <form method="POST" action="{{ url_for('importar_ofertas') }}" enctype="multipart/form-data">
+        <div class="form-grid grid-import">
+            <div class="form-group">
+                <label for="arquivo">Arquivo .xlsx ou .csv</label>
+                <input type="file" id="arquivo" name="arquivo" accept=".xlsx,.csv" required>
+                <span style="color: var(--text-muted); font-size: 0.78rem; margin-top: 0.45rem;">
+                    Colunas aceitas: produto, unidade, preco_oferta, preco_club, data_cadastro, data_validade, destinatario.
+                </span>
+            </div>
+            <div class="form-group" style="justify-content: flex-end;">
+                <button type="submit" class="btn-primary" style="margin-top: 0; padding: 0.7rem 1.5rem;">
+                    Importar
+                </button>
+            </div>
+        </div>
+    </form>
+</div>
+
+<hr class="gold-divider">
+
+<!-- Filtro + Busca + Título da tabela -->
+<div class="page-header">
+    <h2 class="page-title">Ofertas Cadastradas <span style="font-size:0.9rem;color:var(--text-muted);font-weight:400;">({{ total }} registro(s))</span></h2>
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+        <form method="GET" action="{{ url_for('admin') }}" class="search-wrapper">
+            <div style="display: flex; align-items: center; gap: 4px;">
+                <span class="filter-label">🔍 Busca:</span>
+                <input type="text" name="busca" value="{{ busca }}"
+                       placeholder="Nome do produto..." class="input-search-inline">
+            </div>
+            <div style="display: flex; align-items: center; gap: 4px;">
+                <span class="filter-label" style="margin-left: 4px;">📅 Data:</span>
+                <input type="date" name="data" value="{{ data_selecionada }}"
+                       onchange="this.form.submit()" class="input-date-inline">
+            </div>
+            <button type="submit" class="btn-sm btn-gold" style="padding: 0.4rem 0.8rem; margin-left: 2px;">Buscar</button>
+            {% if data_selecionada or busca %}
+                <a href="{{ url_for('admin') }}" class="btn-sm btn-secondary">✕ Limpar</a>
+            {% endif %}
+        </form>
+        <a href="{{ url_for('exportar_ofertas', data=data_selecionada, busca=busca) }}" class="btn-sm btn-success" style="text-decoration:none;">📥 Exportar CSV</a>
+    </div>
+</div>
+
+<!-- Barra de Ações em Lote -->
+<div class="form-card" style="padding:1rem;margin-bottom:1rem;">
+    <form method="POST" action="{{ url_for('duplicar_ofertas_lote') }}" id="form-duplicar-lote" onsubmit="duplicarLoteConfirm(event)" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+        <span style="font-size:0.85rem;font-weight:600;color:var(--gold-light);">📋 Ações em Lote para Selecionadas:</span>
+        <input type="date" name="data_destino" required class="input-date-inline">
+        <div id="lote-ids-container"></div>
+        <button type="submit" class="btn-sm btn-dark-gold">Duplicar Lote</button>
+        <span style="border-left: 1px solid var(--border); height: 20px; margin: 0 4px;"></span>
+        <button type="button" class="btn-sm btn-print" onclick="imprimirLote('a4')">🖨️ Imprimir Lote A4</button>
+        <button type="button" class="btn-sm btn-info" onclick="imprimirLote('pequeno')">🖨️ Imprimir Lote Peq</button>
+    </form>
+</div>
+
+<!-- Tabela -->
+<div class="table-container">
+    <table>
+        <thead>
+            <tr>
+                <th style="width:36px;text-align:center;"><input type="checkbox" id="admin-select-all" onchange="adminToggleAll(this)" style="accent-color:var(--gold);cursor:pointer;"></th>
+                <th>ID</th>
+                <th>Produto</th>
+                <th>Destinatário</th>
+                <th>Preço Oferta</th>
+                <th>Preço Clube</th>
+                <th>Data</th>
+                <th>Ações</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% set hoje = today if today else '' %}
+            {% for oferta in ofertas %}
+            {% set vencida = oferta.data_validade and oferta.data_validade < (data_selecionada or hoje) %}
+            <tr class="{{ 'row-vencida' if vencida else '' }}">
+                <td style="text-align:center;"><input type="checkbox" value="{{ oferta.id }}" class="admin-offer-cb" style="accent-color:var(--gold);cursor:pointer;" onchange="adminUpdateMaster()"></td>
+                <td style="color: var(--text-dim); font-size: 0.8rem;">#{{ oferta.id }}</td>
+                <td>
+                    <strong>{{ oferta.produto }}</strong>
+                    {% if vencida %}<span class="badge-vencida">VENCIDA</span>{% endif %}
+                    <span style="color: var(--text-muted); font-size: 0.8rem;">
+                        · {{ oferta.unidade }}
+                    </span>
+                </td>
+                <td>
+                    {% set dest = oferta.destinatario or 'todos' %}
+                    {% if dest == 'todos' %}
+                        <span class="badge-dest-todos">⭐ Todos</span>
+                    {% else %}
+                        {% for f in dest.split(',') %}
+                            <span class="badge-dest-filial">🏪 Loja {{ f.strip() }}</span>
+                        {% endfor %}
+                    {% endif %}
+                </td>
+                <td class="price-col">R$ {{ oferta.preco_oferta | moeda }}</td>
+                <td class="price-col-club">
+                    {% if oferta.preco_club %}
+                        R$ {{ oferta.preco_club | moeda }}
+                    {% else %}
+                        <span style="color: var(--text-dim);">—</span>
+                    {% endif %}
+                </td>
+                <td style="color: var(--text-muted); font-size: 0.85rem;">
+                    {{ oferta.data_cadastro }}
+                </td>
+                <td>
+                    <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+                        <!-- Bloco Editor -->
+                        <div class="action-btn-group">
+                            <span class="btn-group-label">✏️ Layout</span>
+                            <a href="{{ url_for('editor', id=oferta.id, tipo='a4') }}" class="btn-group-item" title="Editar Layout A4">A4</a>
+                            <a href="{{ url_for('editor', id=oferta.id, tipo='pequeno') }}" class="btn-group-item" title="Editar Layout Pequeno">Peq</a>
+                        </div>
+
+                        <!-- Bloco Impressão -->
+                        <div class="action-btn-group">
+                            <span class="btn-group-label">🖨️ Imprimir</span>
+                            <a href="{{ url_for('cartaz', id=oferta.id, tipo='a4') }}" target="_blank" class="btn-group-item item-a4" title="Imprimir Cartaz A4">A4</a>
+                            <a href="{{ url_for('cartaz', id=oferta.id, tipo='pequeno') }}" target="_blank" class="btn-group-item item-peq" title="Imprimir Cartaz Pequeno">Peq</a>
+                        </div>
+
+                        <!-- Ações de Gerenciamento -->
+                        <div style="display: flex; gap: 4px; align-items: center;">
+                            <a href="{{ url_for('editar_oferta', id=oferta.id) }}"
+                               class="btn-sm btn-edit" style="padding: 4px 8px; font-size: 0.78rem;" title="Editar Dados da Oferta">✏️ Dados</a>
+                            <form action="{{ url_for('duplicar_oferta', id=oferta.id) }}"
+                                  method="POST" style="display:inline;" id="duplicar-form-{{ oferta.id }}">
+                                <input type="hidden" name="data_cadastro" value="{{ data_selecionada if data_selecionada else '' }}">
+                                <button type="button" class="btn-sm btn-secondary" style="padding: 4px 8px; font-size: 0.78rem;"
+                                        onclick="showConfirmModal('Duplicar Oferta', 'Duplicar esta oferta (#{{ oferta.id }}) para a data selecionada?', function(){ document.getElementById('duplicar-form-{{ oferta.id }}').submit(); })" title="Duplicar esta oferta">
+                                    📋 Duplicar
+                                </button>
+                            </form>
+                            <form action="{{ url_for('delete_oferta', id=oferta.id) }}"
+                                  method="POST" style="display:inline;" id="delete-form-{{ oferta.id }}">
+                                <button type="button" class="btn-sm btn-danger" style="padding: 4px 8px; font-size: 0.78rem;"
+                                        onclick="showConfirmModal('Excluir Oferta', 'Excluir permanentemente a oferta #{{ oferta.id }}?', function(){ document.getElementById('delete-form-{{ oferta.id }}').submit(); })" title="Excluir esta oferta">
+                                    🗑️ Excluir
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="8" class="empty-state">
+                    <span class="empty-state-icon">📦</span>
+                    <span class="empty-state-title">Nenhuma oferta cadastrada</span>
+                    <span class="empty-state-hint">Use o formulário acima para cadastrar a primeira oferta.</span>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    {% if total_pages > 1 %}
+    <div class="pagination">
+        {% if page > 1 %}
+            <a href="?{% if data_selecionada %}data={{ data_selecionada }}&{% endif %}{% if busca %}busca={{ busca }}&{% endif %}page={{ page-1 }}" class="page-link">&laquo; Anterior</a>
+        {% endif %}
+
+        {% for p in range(1, total_pages + 1) %}
+            {% if p == page %}
+                <span class="page-link active">{{ p }}</span>
+            {% elif p <= 2 or p > total_pages - 2 or (p >= page - 2 and p <= page + 2) %}
+                <a href="?{% if data_selecionada %}data={{ data_selecionada }}&{% endif %}{% if busca %}busca={{ busca }}&{% endif %}page={{ p }}" class="page-link">{{ p }}</a>
+            {% elif p == page - 3 or p == page + 3 %}
+                <span class="page-link dots">...</span>
+            {% endif %}
+        {% endfor %}
+
+        {% if page < total_pages %}
+            <a href="?{% if data_selecionada %}data={{ data_selecionada }}&{% endif %}{% if busca %}busca={{ busca }}&{% endif %}page={{ page+1 }}" class="page-link">Próxima &raquo;</a>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+
+<!-- Script do seletor de filiais -->
+<script>
+function maskMoney(input) {
+    var v = input.value.replace(/\D/g, '');
+    if (v.length === 0) { input.value = ''; return; }
+    while (v.length < 3) v = '0' + v;
+    var intPart = v.slice(0, -2);
+    var decPart = v.slice(-2);
+    intPart = intPart.replace(/^0+/, '');
+    if (intPart === '') intPart = '0';
+    input.value = intPart + ',' + decPart;
+    
+    validarPrecos();
+}
+
+function validarPrecos() {
+    const inputOferta = document.getElementById('preco_oferta');
+    const inputClub = document.getElementById('preco_club');
+    if (!inputOferta || !inputClub) return;
+    
+    const valOferta = parseFloat(inputOferta.value.replace(/\./g, '').replace(',', '.')) || 0;
+    const valClub = parseFloat(inputClub.value.replace(/\./g, '').replace(',', '.')) || 0;
+    
+    let warningEl = document.getElementById('price-validation-warning');
+    if (!warningEl) {
+        warningEl = document.createElement('div');
+        warningEl.id = 'price-validation-warning';
+        warningEl.className = 'field-warning';
+        warningEl.style.color = 'var(--danger-hover)';
+        warningEl.style.fontSize = '0.75rem';
+        warningEl.style.marginTop = '4px';
+        inputClub.parentNode.appendChild(warningEl);
+    }
+    
+    if (valClub > 0 && valClub >= valOferta) {
+        inputClub.style.borderColor = 'var(--danger)';
+        warningEl.innerText = '⚠️ Preço Clube deve ser menor que o preço de Oferta!';
+    } else {
+        inputClub.style.borderColor = '';
+        warningEl.innerText = '';
+    }
+}
+
+function validateForm() {
+    const inputOferta = document.getElementById('preco_oferta');
+    const inputClub = document.getElementById('preco_club');
+    if (!inputOferta || !inputClub) return true;
+    
+    const valOferta = parseFloat(inputOferta.value.replace(/\./g, '').replace(',', '.')) || 0;
+    const valClub = parseFloat(inputClub.value.replace(/\./g, '').replace(',', '.')) || 0;
+    
+    if (valClub > 0 && valClub >= valOferta) {
+        alert('Erro de validação: O preço Clube deve ser menor que o preço de Oferta.');
+        return false;
+    }
+    return true;
+}
+
+function duplicarLoteConfirm(e) {
+    e.preventDefault();
+    
+    var cbs = document.querySelectorAll('.admin-offer-cb:checked');
+    var ids = Array.from(cbs).map(function(cb) { return cb.value; }).filter(function(v) { return v; });
+    if (ids.length === 0) {
+        showConfirmModal('Nenhuma selecionada', 'Selecione ofertas na tabela para duplicar em lote.', function(){});
+        return;
+    }
+    
+    var dateInput = document.querySelector('input[name="data_destino"]');
+    var dataDestino = dateInput ? dateInput.value : '';
+    if (!dataDestino) {
+        alert('Por favor, informe a data de destino.');
+        return;
+    }
+    
+    var dateParts = dataDestino.split('-');
+    var dateFormatted = dateParts.length === 3 ? `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}` : dataDestino;
+    
+    showConfirmModal(
+        'Confirmar Duplicação',
+        `Deseja duplicar as <strong>${ids.length} oferta(s)</strong> selecionada(s) para a data <strong>${dateFormatted}</strong>?`,
+        function() {
+            var container = document.getElementById('lote-ids-container');
+            container.innerHTML = '';
+            ids.forEach(function(id) {
+                var input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'ids';
+                input.value = id;
+                container.appendChild(input);
+            });
+            document.getElementById('form-duplicar-lote').submit();
+        }
+    );
+}
+
+function imprimirLote(tipo) {
+    var cbs = document.querySelectorAll('.admin-offer-cb:checked');
+    var ids = Array.from(cbs).map(function(cb) { return cb.value; }).filter(function(v) { return v; });
+    if (ids.length === 0) {
+        showConfirmModal('Nenhuma selecionada', 'Selecione ofertas na tabela para imprimir em lote.', function(){});
+        return;
+    }
+    
+    var url = '/cartazes_multi?tipo=' + tipo;
+    ids.forEach(function(id) {
+        url += '&ids=' + id;
+    });
+    window.open(url, '_blank');
+}
+
+function adminToggleAll(master) {
+    document.querySelectorAll('.admin-offer-cb').forEach(function(cb) { cb.checked = master.checked; });
+}
+
+function adminUpdateMaster() {
+    var cbs = Array.from(document.querySelectorAll('.admin-offer-cb'));
+    var master = document.getElementById('admin-select-all');
+    if (!master || cbs.length === 0) return;
+    master.checked = cbs.every(function(cb) { return cb.checked; });
+    master.indeterminate = !master.checked && cbs.some(function(cb) { return cb.checked; });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    var form = document.getElementById('form-cadastro');
+    if (form) form.addEventListener('submit', function(e) { if (!validateForm()) e.preventDefault(); });
+    
+    // Add real-time price validation listeners
+    const inputOferta = document.getElementById('preco_oferta');
+    const inputClub = document.getElementById('preco_club');
+    if (inputOferta) inputOferta.addEventListener('input', validarPrecos);
+    if (inputClub) inputClub.addEventListener('input', validarPrecos);
+});
+
+function debounce(fn, delay) {
+    let timeoutId;
+    return (...args) => {
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => fn(...args), delay);
+    };
+}
+
+function escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, char => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+    }[char]));
+}
+
+function initProductHistory(inputId, targetId, excludeId) {
+    const input = document.getElementById(inputId);
+    const target = document.getElementById(targetId);
+    if (!input || !target) return;
+
+    const renderEmpty = () => {
+        target.innerHTML = '';
+    };
+
+    const renderItems = (items) => {
+        if (!items.length) {
+            target.innerHTML = '<div style="padding: 10px; color: var(--text-dim); font-size: 0.85rem;">Nenhum produto correspondente no histórico.</div>';
+            return;
+        }
+
+        target.innerHTML = `
+            <div class="history-title">📅 Histórico Recente (Clique para preencher)</div>
+            ${items.map((item, idx) => {
+                const precoOf = escapeHtml(item.preco_oferta);
+                const precoCl = item.preco_club ? escapeHtml(item.preco_club) : '';
+                const unidade = escapeHtml(item.unidade || 'un');
+                const validade = item.data_validade ? escapeHtml(item.data_validade) : '';
+                return `
+                    <div class="history-item" style="cursor: pointer;" data-idx="${idx}">
+                        <div>
+                            <strong>${escapeHtml(item.produto)}</strong>
+                            <span>${escapeHtml(item.data_cadastro)}${validade ? ' · Validade: ' + validade : ''}</span>
+                        </div>
+                        <div class="history-price">
+                            R$ ${precoOf}
+                            ${precoCl ? `<small>Clube R$ ${precoCl}</small>` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('')}
+        `;
+        
+        // Attach click autocompleters
+        target.querySelectorAll('.history-item').forEach(itemEl => {
+            itemEl.addEventListener('click', function() {
+                const idx = parseInt(this.getAttribute('data-idx'));
+                const item = items[idx];
+                
+                document.getElementById('produto').value = item.produto;
+                document.getElementById('unidade').value = item.unidade || 'un';
+                
+                const precoOfEl = document.getElementById('preco_oferta');
+                precoOfEl.value = item.preco_oferta;
+                maskMoney(precoOfEl);
+                
+                const precoClEl = document.getElementById('preco_club');
+                precoClEl.value = item.preco_club || '';
+                if (item.preco_club) {
+                    maskMoney(precoClEl);
+                } else {
+                    validarPrecos();
+                }
+                
+                const valEl = document.getElementById('data_validade');
+                if (valEl) {
+                    valEl.value = item.data_validade || '';
+                }
+                
+                renderEmpty();
+            });
+        });
+    };
+
+    const fetchHistory = debounce(async () => {
+        const query = input.value.trim();
+        if (query.length < 2) {
+            renderEmpty();
+            return;
+        }
+
+        const params = new URLSearchParams({ q: query });
+        if (excludeId) params.set('exclude_id', excludeId);
+        try {
+            const response = await fetch(`{{ url_for('historico_produto') }}?${params.toString()}`);
+            if (!response.ok) throw new Error('Falha ao buscar histórico');
+            const data = await response.json();
+            renderItems(data.items || []);
+        } catch (error) {
+            target.innerHTML = '<div style="padding: 10px; color: var(--danger-hover); font-size: 0.85rem;">Erro ao carregar histórico.</div>';
+        }
+    }, 250);
+
+    input.addEventListener('input', fetchHistory);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    initProductHistory('produto', 'product-history');
+});
+
+function toggleAll(ctx) {
+    const toggleEl = document.getElementById('toggle-all-' + ctx);
+    const checkEl  = document.getElementById('dest_todos_' + ctx);
+    const isTodos  = !checkEl.checked;
+
+    checkEl.checked = isTodos;
+    toggleEl.classList.toggle('checked', isTodos);
+    toggleEl.querySelector('.checkmark').textContent = isTodos ? '✓' : '';
+
+    document.querySelectorAll('#filiais-grid-' + ctx + ' .dest-item').forEach(item => {
+        const cb = item.querySelector('input[type="checkbox"]');
+        if (isTodos) {
+            cb.checked = false;
+            cb.disabled = true;
+            item.classList.remove('checked');
+        } else {
+            cb.disabled = false;
+        }
+    });
+}
+
+function toggleFilial(el, ctx) {
+    const cb = el.querySelector('input[type="checkbox"]');
+    cb.checked = !cb.checked;
+    el.classList.toggle('checked', cb.checked);
+
+    const algumMarcado = [...document.querySelectorAll('#filiais-grid-' + ctx + ' input[type="checkbox"]')]
+        .some(c => c.checked);
+    if (!algumMarcado) {
+        toggleAll(ctx);
+    }
+}
+</script>
+
+{% endblock %}

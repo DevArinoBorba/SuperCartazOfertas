@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="login-wrapper">
+    <div class="login-box">
+        <!-- Logo / Header -->
+        <div class="login-logo">
+            <span class="icon">🏷️</span>
+            <h1>SuperOfertas</h1>
+            <p>Sistema de Cartazeamento de Ofertas</p>
+        </div>
+
+        <!-- Card de Login -->
+        <div class="login-card">
+            <form method="POST" action="{{ url_for('login') }}">
+                <div class="form-group">
+                    <label for="username">Usuário</label>
+                    <input type="text" id="username" name="username"
+                           required placeholder="Digite seu usuário" autocomplete="username">
+                </div>
+
+                <div class="form-group" style="margin-top: 1rem;">
+                    <label for="password">Senha</label>
+                    <div class="password-wrapper">
+                        <input type="password" id="password" name="password"
+                               required placeholder="Digite sua senha" autocomplete="current-password">
+                        <button type="button" class="password-toggle" onclick="toggleSenha('password', this)" tabindex="-1">👁️</button>
+                    </div>
+                </div>
+                <script>function toggleSenha(id, btn) { var el=document.getElementById(id); if(el.type==='password'){el.type='text';btn.textContent='🙈';}else{el.type='password';btn.textContent='👁️';} }</script>
+
+                <button type="submit" class="btn-primary btn-login">
+                    Entrar no Sistema
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

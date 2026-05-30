@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cartaz - {{ oferta.produto }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        html {
+            font-size: 16px !important;
+        }
+
+        .cartaz-container .drag-el {
+            position: absolute;
+            margin: 0 !important;
+            padding: 0;
+            line-height: 1;
+        }
+        
+        .cartaz-container.blank-paper {
+            width: {% if tipo == 'pequeno' %}105mm{% else %}210mm{% endif %};
+            height: {% if tipo == 'pequeno' %}148mm{% else %}297mm{% endif %};
+            background-color: #ffffff !important;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4) !important;
+            margin: 0 auto;
+        }
+
+        @media print {
+            @page {
+                size: A4;
+                margin: 0;
+            }
+            .cartaz-container.blank-paper {
+                width: {% if tipo == 'pequeno' %}105mm{% else %}210mm{% endif %} !important;
+                height: {% if tipo == 'pequeno' %}148mm{% else %}297mm{% endif %} !important;
+                margin: {% if tipo == 'pequeno' %}0 auto{% else %}0{% endif %} !important;
+                box-shadow: none !important;
+                border: none !important;
+            }
+        }
+    </style>
+</head>
+<body class="cartaz-body">
+    
+    <div class="cartaz-controls no-print" style="align-items: center;">
+        <div style="background: rgba(10, 10, 10, 0.98); border: 1px solid var(--border-strong); padding: 12px 18px; border-radius: 12px; font-size: 0.8rem; color: var(--text-muted); display: flex; flex-direction: column; gap: 4px; box-shadow: var(--shadow); max-width: 260px; line-height: 1.4; text-align: left;">
+            <strong style="color: var(--gold); font-size: 0.85rem;">🖨️ Dica de Impressão:</strong>
+            <span>Para precisão milimétrica, configure na janela de impressão:</span>
+            <span style="color: var(--text-primary); font-weight: 600;">• Margens: <span style="color: var(--gold-light);">Nenhuma</span></span>
+            <span style="color: var(--text-primary); font-weight: 600;">• Escala: <span style="color: var(--gold-light);">100%</span> (Padrão)</span>
+        </div>
+        <button onclick="window.close()" class="btn-floating btn-back-action" style="cursor: pointer;">✕ Fechar</button>
+        <button onclick="window.print()" class="btn-floating btn-print-action" style="cursor: pointer;">🖨️ Imprimir</button>
+    </div>
+
+    <!-- O cartaz -->
+    <div class="cartaz-container blank-paper">
+        {% set p_oferta = (oferta.preco_oferta | moeda).split(',') %}
+        {% set p_club = (oferta.preco_club | moeda).split(',') if (oferta.preco_club is not none and oferta.preco_club != '' and oferta.preco_club != 0) else ('', '') %}
+
+        <!-- Produto -->
+        <div class="drag-el cartaz-produto" style="top: {{ layout.get('produto', {}).get('top', 100) }}px; left: {{ layout.get('produto', {}).get('left', 350) }}px; font-size: {{ layout.get('produto', {}).get('fontSize', 7) }}rem; width: {{ layout.get('produto', {}).get('width', '80%') }}; color: {{ layout.get('produto', {}).get('color') or '#000000' }}; display: {{ 'block' if layout.get('produto', {}).get('visible', True) != False else 'none' }};">
+            {{ oferta.produto }}
+        </div>
+
+        <!-- Cifrão Principal -->
+        <div class="drag-el r-cifrao-main" style="top: {{ layout.get('cifrao_main', {}).get('top', 400) }}px; left: {{ layout.get('cifrao_main', {}).get('left', 100) }}px; font-size: {{ layout.get('cifrao_main', {}).get('fontSize', 6) }}rem; width: {{ layout.get('cifrao_main', {}).get('width', 'auto') }}; color: {{ layout.get('cifrao_main', {}).get('color') or '#000000' }}; display: {{ 'block' if layout.get('cifrao_main', {}).get('visible', True) != False else 'none' }};">
+            R$
+        </div>
+
+        <!-- Inteiro Principal -->
+        <div class="drag-el main-integer" style="top: {{ layout.get('inteiro_main', {}).get('top', 350) }}px; left: {{ layout.get('inteiro_main', {}).get('left', 200) }}px; font-size: {{ layout.get('inteiro_main', {}).get('fontSize', 28) }}rem; width: {{ layout.get('inteiro_main', {}).get('width', 'auto') }}; color: {{ layout.get('inteiro_main', {}).get('color') or '#000000' }}; display: {{ 'block' if layout.get('inteiro_main', {}).get('visible', True) != False else 'none' }};">
+            {{ p_oferta[0] }}
+        </div>
+
+        <!-- Decimal Principal -->
+        <div class="drag-el main-decimal" style="top: {{ layout.get('decimal_main', {}).get('top', 650) }}px; left: {{ layout.get('decimal_main', {}).get('left', 650) }}px; font-size: {{ layout.get('decimal_main', {}).get('fontSize', 13) }}rem; width: {{ layout.get('decimal_main', {}).get('width', 'auto') }}; color: {{ layout.get('decimal_main', {}).get('color') or '#000000' }}; display: {{ 'block' if layout.get('decimal_main', {}).get('visible', True) != False else 'none' }};">
+            {% if p_oferta|length > 1 %},{{ p_oferta[1] }}{% endif %}
+        </div>
+
+        {% if oferta.preco_club is not none and oferta.preco_club != '' and oferta.preco_club != 0 %}
+        <!-- Cifrão Club -->
+        <div class="drag-el r-cifrao-club" style="top: {{ layout.get('cifrao_club', {}).get('top', 850) }}px; left: {{ layout.get('cifrao_club', {}).get('left', 250) }}px; font-size: {{ layout.get('cifrao_club', {}).get('fontSize', 2.5) }}rem; color: {{ layout.get('cifrao_club', {}).get('color') or '#000000' }}; width: {{ layout.get('cifrao_club', {}).get('width', 'auto') }}; display: {{ 'block' if layout.get('cifrao_club', {}).get('visible', True) != False else 'none' }};">
+            R$
+        </div>
+
+        <!-- Valor Club -->
+        <div class="drag-el club-price-val" style="top: {{ layout.get('valor_club', {}).get('top', 850) }}px; left: {{ layout.get('valor_club', {}).get('left', 300) }}px; font-size: {{ layout.get('valor_club', {}).get('fontSize', 7) }}rem; color: {{ layout.get('valor_club', {}).get('color') or '#000000' }}; width: {{ layout.get('valor_club', {}).get('width', 'auto') }}; display: {{ 'block' if layout.get('valor_club', {}).get('visible', True) != False else 'none' }};">
+            {{ p_club[0] }}{% if p_club|length > 1 %},{{ p_club[1] }}{% endif %}
+        </div>
+
+        <!-- Label Club -->
+        <div class="drag-el club-label" style="top: {{ layout.get('club_label', {}).get('top', 950) }}px; left: {{ layout.get('club_label', {}).get('left', 280) }}px; font-size: {{ layout.get('club_label', {}).get('fontSize', 2.5) }}rem; color: {{ layout.get('club_label', {}).get('color') or '#000000' }}; width: {{ layout.get('club_label', {}).get('width', 'auto') }}; display: {{ 'block' if layout.get('club_label', {}).get('visible', True) != False else 'none' }};">
+            {{ club_label }}
+        </div>
+        {% endif %}
+
+        <!-- Unidade -->
+        <div class="drag-el cartaz-unit" style="top: {{ layout.get('unidade', {}).get('top', 950) }}px; left: {{ layout.get('unidade', {}).get('left', 650) }}px; font-size: {{ layout.get('unidade', {}).get('fontSize', 4) }}rem; width: {{ layout.get('unidade', {}).get('width', 'auto') }}; color: {{ layout.get('unidade', {}).get('color') or '#000000' }}; display: {{ 'block' if layout.get('unidade', {}).get('visible', True) != False else 'none' }};">
+            {{ oferta.unidade }}
+        </div>
+
+        {% if oferta.data_validade %}
+        <!-- Data de Validade -->
+        <div class="drag-el cartaz-validade" style="top: {{ layout.get('data_validade', {}).get('top', 530 if tipo == 'pequeno' else 1050) }}px; left: {{ layout.get('data_validade', {}).get('left', 200 if tipo == 'pequeno' else 350) }}px; font-size: {{ layout.get('data_validade', {}).get('fontSize', 1.2 if tipo == 'pequeno' else 2) }}rem; color: {{ layout.get('data_validade', {}).get('color') or '#000000' }}; font-weight: bold; width: {{ layout.get('data_validade', {}).get('width', '100%') }}; text-align: center; display: {{ 'block' if layout.get('data_validade', {}).get('visible', True) != False else 'none' }};">
+            {% set dt_val = oferta.data_validade.split('-') %}
+            {% if dt_val|length == 3 %}
+                VALIDADE PRÓXIMA: {{ dt_val[2] }}/{{ dt_val[1] }}/{{ dt_val[0] }}
+            {% else %}
+                VALIDADE PRÓXIMA: {{ oferta.data_validade }}
+            {% endif %}
+        </div>
+        {% endif %}
+
+    </div>
+
+<script>
+    window.onload = function() {
+        setTimeout(function() {
+            window.print();
+        }, 500);
+    };
+</script>
+</body>
+</html>

@@ -1,0 +1,1642 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Editor de Layout</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <style>
+        @font-face {
+            font-family: 'oderta do dia';
+            src: url('{{ url_for("static", filename="fonts/Oferta-do-Dia.ttf") }}') format('truetype');
+        }
+
+        @font-face {
+            font-family: 'Maxloc';
+            src: url('{{ url_for("static", filename="fonts/Maxlock.ttf") }}') format('truetype');
+        }
+
+        html {
+            font-size: 16px !important;
+        }
+
+        :root {
+            --gold: #d4af37;
+            --gold-light: #f3e5ab;
+            --gold-dark: #aa7c11;
+            --gold-glow: rgba(212, 175, 55, 0.15);
+            --bg-dark: #070709;
+            --bg-card: rgba(18, 18, 22, 0.95);
+            --bg-workspace: #121214;
+            --border: rgba(212, 175, 55, 0.12);
+            --border-strong: rgba(212, 175, 55, 0.3);
+            --text-primary: #f8f6f0;
+            --text-muted: #a39f90;
+            --text-dim: #6e6a5c;
+            --danger: #c0392b;
+            --danger-hover: #e74c3c;
+            --success: #1a6b3c;
+            --success-text: #5dbd85;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-workspace);
+            color: var(--text-primary);
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* App Layout Container */
+        .editor-app {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            width: 100vw;
+        }
+
+        /* Top Header */
+        .editor-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(10, 10, 10, 0.98);
+            border-bottom: 1px solid var(--border-strong);
+            padding: 0 20px;
+            height: 60px;
+            z-index: 100;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .editor-title {
+            font-size: 1rem;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            color: var(--text-primary);
+        }
+
+        .editor-title span {
+            color: var(--gold);
+        }
+
+        .badge-layout {
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            border: 1px solid transparent;
+            text-transform: uppercase;
+        }
+
+        .badge-global {
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text-muted);
+            border-color: rgba(255, 255, 255, 0.1);
+        }
+
+        .badge-custom {
+            background: rgba(212, 175, 55, 0.12);
+            color: var(--gold-light);
+            border-color: var(--border-strong);
+            box-shadow: 0 0 10px rgba(212, 175, 55, 0.05);
+        }
+
+        .header-center {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .zoom-controls, .history-controls {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            padding: 4px 10px;
+            border-radius: 30px;
+        }
+
+        .zoom-btn, .history-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-primary);
+            cursor: pointer;
+            font-size: 0.95rem;
+            width: 28px;
+            height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: all 0.2s;
+        }
+
+        .zoom-btn:hover, .history-btn:hover {
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--gold-light);
+        }
+
+        .zoom-btn:disabled, .history-btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        .zoom-value {
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            min-width: 48px;
+            text-align: center;
+            font-family: monospace;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* Buttons */
+        .btn-header {
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            text-decoration: none;
+            border: 1px solid transparent;
+            font-family: inherit;
+        }
+
+        .btn-header-save {
+            background: linear-gradient(135deg, var(--gold), var(--gold-dark));
+            color: #000;
+            box-shadow: 0 4px 15px rgba(212, 175, 55, 0.15);
+        }
+
+        .btn-header-save:hover {
+            filter: brightness(1.15);
+            transform: translateY(-1px);
+        }
+
+        .btn-header-back {
+            background: rgba(255, 255, 255, 0.04);
+            border-color: rgba(255, 255, 255, 0.08);
+            color: var(--text-primary);
+        }
+
+        .btn-header-back:hover {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.15);
+        }
+
+        /* Workspace Grid */
+        .editor-workspace {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* Sidebar: Left (Layers) */
+        .sidebar-left {
+            width: 270px;
+            background: var(--bg-card);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            padding: 15px;
+            overflow-y: auto;
+            z-index: 10;
+        }
+
+        /* Sidebar: Right (Properties) */
+        .sidebar-right {
+            width: 310px;
+            background: var(--bg-card);
+            border-left: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            padding: 15px;
+            overflow-y: auto;
+            z-index: 10;
+        }
+
+        /* Canvas Workspace (Center) */
+        .canvas-area {
+            flex: 1;
+            background: #151518;
+            background-image: 
+                radial-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 0),
+                radial-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 0);
+            background-size: 24px 24px;
+            background-position: 0 0, 12px 12px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: auto;
+            padding: 40px;
+            position: relative;
+        }
+
+        .canvas-zoom-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transform-origin: center center;
+            transition: transform 0.12s cubic-bezier(0.2, 0.8, 0.2, 1);
+        }
+
+        /* Editor Container (Canvas Paper) */
+        .editor-container {
+            position: relative;
+            background: #ffffff;
+            border: 1px solid rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+            flex-shrink: 0;
+            width: {% if tipo == 'pequeno' %}105mm{% else %}210mm{% endif %};
+            height: {% if tipo == 'pequeno' %}148mm{% else %}297mm{% endif %};
+        }
+
+        /* Drag Elements styling */
+        .drag-el {
+            position: absolute;
+            cursor: move;
+            user-select: none;
+            border: 1px dashed transparent;
+            margin: 0 !important;
+            padding: 2px;
+            line-height: 1;
+            z-index: 10;
+            box-sizing: border-box;
+            outline: none;
+        }
+
+        .drag-el:hover {
+            border-color: rgba(230, 57, 70, 0.5);
+        }
+
+        .drag-el.selected {
+            border: 2px solid #e63946 !important;
+            border-radius: 2px;
+            z-index: 20;
+        }
+
+        .drag-el[data-locked="true"] {
+            cursor: not-allowed;
+        }
+        
+        .drag-el[data-locked="true"].selected {
+            border-color: #0d9488 !important; /* Teal for locked elements */
+        }
+
+        .drag-el:hover {
+            border-color: #e63946;
+        }
+
+        /* Fonts for Canvas elements */
+        .cartaz-produto {
+            color: #000;
+            line-height: 1.2;
+            font-family: 'oderta do dia', sans-serif;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        .r-cifrao-main { font-family: 'oderta do dia', sans-serif; color: #000; }
+        .main-integer   { font-family: 'Maxloc', sans-serif; line-height: 0.8; color: #000; }
+        .main-decimal   { font-family: 'Maxloc', sans-serif; color: #000; }
+        .club-price-val { font-family: 'Maxloc', sans-serif; color: #000; }
+        .r-cifrao-club  { font-family: 'oderta do dia', sans-serif; }
+        .club-label     { font-family: 'oderta do dia', sans-serif; color: #000; letter-spacing: 1px; }
+        .cartaz-unit    { font-family: 'oderta do dia', sans-serif; text-transform: uppercase; color: #000; }
+
+        /* Sidebar content structures */
+        .sidebar-title {
+            font-size: 0.85rem;
+            font-weight: 800;
+            color: var(--gold);
+            text-transform: uppercase;
+            margin-bottom: 15px;
+            letter-spacing: 0.8px;
+            border-bottom: 1px solid var(--border-strong);
+            padding-bottom: 6px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* Layers Panel Styling */
+        .layers-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .layer-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 10px;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            user-select: none;
+        }
+
+        .layer-item:hover {
+            background: rgba(212, 175, 55, 0.05);
+            border-color: rgba(212, 175, 55, 0.25);
+        }
+
+        .layer-item.active {
+            background: rgba(212, 175, 55, 0.12);
+            border-color: var(--gold);
+            box-shadow: 0 0 10px rgba(212, 175, 55, 0.1);
+        }
+
+        .layer-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.8rem;
+            color: var(--text-primary);
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+            flex: 1;
+            height: 100%;
+        }
+
+        .layer-icon-indicator {
+            font-size: 0.85rem;
+            color: var(--gold-light);
+            opacity: 0.7;
+        }
+
+        .layer-actions {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .layer-action-btn {
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            font-size: 0.8rem;
+            width: 24px;
+            height: 24px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            color: var(--text-dim);
+        }
+
+        .layer-action-btn:hover {
+            background: rgba(255, 255, 255, 0.06);
+            color: var(--text-primary);
+        }
+
+        .layer-action-btn.active {
+            color: var(--gold);
+        }
+        
+        .layer-action-btn.inactive {
+            opacity: 0.4;
+        }
+
+        /* Properties Panel Styling */
+        .properties-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .prop-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .prop-group label {
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: var(--text-muted);
+        }
+
+        .prop-badge {
+            background: rgba(212, 175, 55, 0.08);
+            border: 1px solid var(--border);
+            color: var(--gold-light);
+            font-weight: 700;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            text-align: center;
+            border-left: 3px solid var(--gold);
+        }
+
+        .prop-inputs-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .prop-input-wrap {
+            display: flex;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 6px 10px;
+            transition: border-color 0.2s;
+        }
+
+        .prop-input-wrap:focus-within {
+            border-color: var(--gold-strong);
+        }
+
+        .prop-input-wrap span {
+            font-size: 0.75rem;
+            color: var(--text-dim);
+            margin-right: 6px;
+            font-weight: bold;
+        }
+
+        .prop-input-wrap input {
+            background: transparent;
+            border: none;
+            color: var(--text-primary);
+            width: 100%;
+            font-size: 0.82rem;
+            outline: none;
+            text-align: right;
+            font-family: monospace;
+        }
+
+        .font-controls {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .font-controls input {
+            flex: 1;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text-primary);
+            padding: 6px;
+            font-size: 0.82rem;
+            text-align: center;
+            font-weight: bold;
+            outline: none;
+            font-family: monospace;
+        }
+
+        .btn-prop-small {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+            cursor: pointer;
+            width: 28px;
+            height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 6px;
+            font-weight: 700;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+
+        .btn-prop-small:hover {
+            background: var(--bg-hover);
+            border-color: var(--border-strong);
+            color: var(--gold-light);
+        }
+
+        .btn-control-full {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+            cursor: pointer;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 0.8rem;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        .btn-control-full:hover {
+            background: var(--bg-hover);
+            border-color: var(--border-strong);
+            color: var(--gold-light);
+        }
+
+        /* Color Options Grid */
+        .color-palette {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .color-btn {
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            border: 2px solid transparent;
+            cursor: pointer;
+            transition: transform 0.15s;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.4);
+        }
+
+        .color-btn:hover {
+            transform: scale(1.15);
+        }
+
+        .color-btn.active {
+            border-color: #fff;
+            box-shadow: 0 0 8px var(--gold);
+        }
+
+        .color-picker-wrapper {
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            overflow: hidden;
+            position: relative;
+            border: 2px solid transparent;
+            cursor: pointer;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.4);
+            background: conic-gradient(red, yellow, lime, aqua, blue, magenta, red);
+        }
+
+        .color-picker-wrapper input[type="color"] {
+            position: absolute;
+            top: -5px;
+            left: -5px;
+            width: 32px;
+            height: 32px;
+            border: none;
+            padding: 0;
+            margin: 0;
+            cursor: pointer;
+            opacity: 0;
+        }
+
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            color: var(--text-primary);
+            user-select: none;
+            padding: 4px 0;
+        }
+
+        .checkbox-label input[type="checkbox"] {
+            accent-color: var(--gold);
+            cursor: pointer;
+        }
+
+        .divider-prop {
+            border: none;
+            border-top: 1px solid var(--border);
+            margin: 8px 0;
+        }
+
+        .btn-action-panel {
+            background: rgba(201, 168, 76, 0.08);
+            color: var(--gold-light);
+            border: 1px solid var(--border-strong);
+            cursor: pointer;
+            padding: 10px;
+            border-radius: 6px;
+            font-weight: 700;
+            font-size: 0.82rem;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            font-family: inherit;
+        }
+
+        .btn-action-panel:hover {
+            background: rgba(201, 168, 76, 0.18);
+            color: #fff;
+        }
+
+        .btn-action-panel.danger {
+            background: rgba(192, 57, 43, 0.1);
+            color: #e57373;
+            border-color: rgba(192, 57, 43, 0.25);
+        }
+
+        .btn-action-panel.danger:hover {
+            background: rgba(192, 57, 43, 0.25);
+            color: #fff;
+        }
+    </style>
+</head>
+<body>
+    <div class="editor-app">
+        <!-- Top Toolbar Header -->
+        <header class="editor-header">
+            <div class="header-left">
+                <h1 class="editor-title">🏷️ Editor Layout <span>{{ tipo|upper }}</span></h1>
+                {% if is_custom %}
+                <span class="badge-layout badge-custom">Layout da Oferta</span>
+                {% else %}
+                <span class="badge-layout badge-global">Layout Padrão</span>
+                {% endif %}
+            </div>
+            
+            <div class="header-center">
+                <!-- Zoom Controls -->
+                <div class="zoom-controls">
+                    <button class="zoom-btn" id="btn-zoom-out" title="Diminuir Zoom (Ctrl + -)">➖</button>
+                    <span class="zoom-value" id="zoom-factor">100%</span>
+                    <button class="zoom-btn" id="btn-zoom-in" title="Aumentar Zoom (Ctrl + +)">➕</button>
+                    <button class="zoom-btn" id="btn-zoom-reset" title="Ajustar à Tela">Reset</button>
+                </div>
+                
+                <!-- History Controls -->
+                <div class="history-controls">
+                    <button class="history-btn" id="btn-undo" title="Desfazer (Ctrl + Z)">↩️</button>
+                    <button class="history-btn" id="btn-redo" title="Refazer (Ctrl + Y)">↪️</button>
+                </div>
+            </div>
+            
+            <div class="header-right">
+                <button class="btn-header btn-header-save" onclick="salvarLayout()">💾 Salvar Layout</button>
+                <a href="{{ url_for('admin') }}" class="btn-header btn-header-back">🚪 Voltar</a>
+            </div>
+        </header>
+        
+        <!-- Main Editor Workspace -->
+        <div class="editor-workspace">
+            <!-- Sidebar Left: Layers -->
+            <aside class="sidebar-left">
+                <h2 class="sidebar-title" style="display: flex; flex-direction: column; align-items: flex-start; gap: 4px;">
+                    <span>📁 Camadas (Layers)</span>
+                    <small style="color: var(--text-dim); font-size: 0.65rem; text-transform: none; font-weight: normal; margin-top: 2px;">(Ctrl + Clique para multi-seleção)</small>
+                </h2>
+                <div class="layers-list" id="layers-list">
+                    <!-- Javascript will dynamically build layer items here -->
+                </div>
+            </aside>
+            
+            <!-- Central Canvas Area -->
+            <main class="canvas-area">
+                <div class="canvas-zoom-container" id="canvas-zoom-wrapper">
+                    <div class="editor-container" id="canvas">
+                        <!-- Vertical Axis (Center Guide Line) -->
+                        <div id="ruler-x" style="position: absolute; top: 0; bottom: 0; left: 50%; width: 1px; border-left: 1px dashed #e63946; pointer-events: none; z-index: 999; display: block;">
+                            <div style="position: absolute; top: 12px; left: 4px; background: rgba(230,57,70,0.9); color: white; font-size: 9px; padding: 2px 5px; border-radius: 3px; font-family: sans-serif; white-space: nowrap;">Centro Horizontal (50%)</div>
+                        </div>
+                        
+                        <!-- Horizontal Axis (Center Guide Line) -->
+                        <div id="ruler-y" style="position: absolute; left: 0; right: 0; top: 50%; height: 1px; border-top: 1px dashed #e63946; pointer-events: none; z-index: 999; display: block;">
+                            <div style="position: absolute; left: 12px; top: 4px; background: rgba(230,57,70,0.9); color: white; font-size: 9px; padding: 2px 5px; border-radius: 3px; font-family: sans-serif; white-space: nowrap;">Centro Vertical (50%)</div>
+                        </div>
+
+                        <!-- Grid overlay mesh -->
+                        <div id="ruler-grid" style="position: absolute; inset: 0; background-size: 20px 20px; background-image: linear-gradient(to right, rgba(0,0,0,0.05) 1px, transparent 1px), linear-gradient(to bottom, rgba(0,0,0,0.05) 1px, transparent 1px); pointer-events: none; z-index: 1; display: none;"></div>
+
+                        {% if tipo == 'pequeno' %}
+                        <!-- Visual boundary indicator for Small Posters -->
+                        <div style="position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 105mm; height: 148mm; border: 2px dashed #007bff; pointer-events: none; z-index: 0; opacity: 0.5;">
+                            <div style="position: absolute; bottom: 5px; right: 5px; font-size: 10px; color: #007bff; font-family: sans-serif;">Área do Cartaz Pequeno</div>
+                        </div>
+                        {% endif %}
+
+                        {% set p_oferta = (oferta.preco_oferta | moeda).split(',') %}
+                        {% set p_club = (oferta.preco_club | moeda).split(',') if (oferta.preco_club is not none and oferta.preco_club != '' and oferta.preco_club != 0) else ('', '') %}
+
+                        <!-- Dynamic elements -->
+                        
+                        <!-- Produto -->
+                        <div class="drag-el cartaz-produto" data-id="produto" 
+                             style="top: {{ layout.get('produto', {}).get('top', 100) }}px; left: {{ layout.get('produto', {}).get('left', 350) }}px; font-size: {{ layout.get('produto', {}).get('fontSize', 7) }}rem; width: {{ layout.get('produto', {}).get('width', '80%') }}; color: {{ layout.get('produto', {}).get('color', '#000000') }}; display: {{ 'block' if layout.get('produto', {}).get('visible', True) != False else 'none' }};"
+                             data-locked="{{ 'true' if layout.get('produto', {}).get('locked', False) else 'false' }}">
+                            {{ oferta.produto }}
+                        </div>
+
+                        <!-- Cifrão Principal -->
+                        <div class="drag-el r-cifrao-main" data-id="cifrao_main" 
+                             style="top: {{ layout.get('cifrao_main', {}).get('top', 400) }}px; left: {{ layout.get('cifrao_main', {}).get('left', 100) }}px; font-size: {{ layout.get('cifrao_main', {}).get('fontSize', 6) }}rem; width: {{ layout.get('cifrao_main', {}).get('width', 'auto') }}; color: {{ layout.get('cifrao_main', {}).get('color', '#000000') }}; display: {{ 'block' if layout.get('cifrao_main', {}).get('visible', True) != False else 'none' }};"
+                             data-locked="{{ 'true' if layout.get('cifrao_main', {}).get('locked', False) else 'false' }}">
+                            R$
+                        </div>
+
+                        <!-- Inteiro Principal -->
+                        <div class="drag-el main-integer" data-id="inteiro_main" 
+                             style="top: {{ layout.get('inteiro_main', {}).get('top', 350) }}px; left: {{ layout.get('inteiro_main', {}).get('left', 200) }}px; font-size: {{ layout.get('inteiro_main', {}).get('fontSize', 28) }}rem; width: {{ layout.get('inteiro_main', {}).get('width', 'auto') }}; color: {{ layout.get('inteiro_main', {}).get('color', '#000000') }}; display: {{ 'block' if layout.get('inteiro_main', {}).get('visible', True) != False else 'none' }};"
+                             data-locked="{{ 'true' if layout.get('inteiro_main', {}).get('locked', False) else 'false' }}">
+                            {{ p_oferta[0] }}
+                        </div>
+
+                        <!-- Decimal Principal -->
+                        <div class="drag-el main-decimal" data-id="decimal_main" 
+                             style="top: {{ layout.get('decimal_main', {}).get('top', 650) }}px; left: {{ layout.get('decimal_main', {}).get('left', 650) }}px; font-size: {{ layout.get('decimal_main', {}).get('fontSize', 13) }}rem; width: {{ layout.get('decimal_main', {}).get('width', 'auto') }}; color: {{ layout.get('decimal_main', {}).get('color', '#000000') }}; display: {{ 'block' if layout.get('decimal_main', {}).get('visible', True) != False else 'none' }};"
+                             data-locked="{{ 'true' if layout.get('decimal_main', {}).get('locked', False) else 'false' }}">
+                            {% if p_oferta|length > 1 %},{{ p_oferta[1] }}{% endif %}
+                        </div>
+
+                        {% if oferta.preco_club is not none and oferta.preco_club != '' and oferta.preco_club != 0 %}
+                        <!-- Cifrão Club -->
+                        <div class="drag-el r-cifrao-club" data-id="cifrao_club" 
+                             style="top: {{ layout.get('cifrao_club', {}).get('top', 850) }}px; left: {{ layout.get('cifrao_club', {}).get('left', 250) }}px; font-size: {{ layout.get('cifrao_club', {}).get('fontSize', 2.5) }}rem; color: {{ layout.get('cifrao_club', {}).get('color', '#000000') }}; width: {{ layout.get('cifrao_club', {}).get('width', 'auto') }}; display: {{ 'block' if layout.get('cifrao_club', {}).get('visible', True) != False else 'none' }};"
+                             data-locked="{{ 'true' if layout.get('cifrao_club', {}).get('locked', False) else 'false' }}">
+                            R$
+                        </div>
+
+                        <!-- Valor Club -->
+                        <div class="drag-el club-price-val" data-id="valor_club" 
+                             style="top: {{ layout.get('valor_club', {}).get('top', 850) }}px; left: {{ layout.get('valor_club', {}).get('left', 300) }}px; font-size: {{ layout.get('valor_club', {}).get('fontSize', 7) }}rem; color: {{ layout.get('valor_club', {}).get('color', '#000000') }}; width: {{ layout.get('valor_club', {}).get('width', 'auto') }}; display: {{ 'block' if layout.get('valor_club', {}).get('visible', True) != False else 'none' }};"
+                             data-locked="{{ 'true' if layout.get('valor_club', {}).get('locked', False) else 'false' }}">
+                            {{ p_club[0] }}{% if p_club|length > 1 %},{{ p_club[1] }}{% endif %}
+                        </div>
+
+                        <!-- Label Club -->
+                        <div class="drag-el club-label" data-id="club_label" 
+                             style="top: {{ layout.get('club_label', {}).get('top', 950) }}px; left: {{ layout.get('club_label', {}).get('left', 280) }}px; font-size: {{ layout.get('club_label', {}).get('fontSize', 2.5) }}rem; color: {{ layout.get('club_label', {}).get('color', '#000000') }}; width: {{ layout.get('club_label', {}).get('width', 'auto') }}; display: {{ 'block' if layout.get('club_label', {}).get('visible', True) != False else 'none' }};"
+                             data-locked="{{ 'true' if layout.get('club_label', {}).get('locked', False) else 'false' }}">
+                            {{ club_label }}
+                        </div>
+                        {% endif %}
+
+                        <!-- Unidade -->
+                        <div class="drag-el cartaz-unit" data-id="unidade" 
+                             style="top: {{ layout.get('unidade', {}).get('top', 950) }}px; left: {{ layout.get('unidade', {}).get('left', 650) }}px; font-size: {{ layout.get('unidade', {}).get('fontSize', 4) }}rem; width: {{ layout.get('unidade', {}).get('width', 'auto') }}; color: {{ layout.get('unidade', {}).get('color', '#000000') }}; display: {{ 'block' if layout.get('unidade', {}).get('visible', True) != False else 'none' }};"
+                             data-locked="{{ 'true' if layout.get('unidade', {}).get('locked', False) else 'false' }}">
+                            {{ oferta.unidade }}
+                        </div>
+
+                        {% if oferta.data_validade %}
+                        <!-- Data de Validade -->
+                        <div class="drag-el cartaz-validade" data-id="data_validade" 
+                             style="top: {{ layout.get('data_validade', {}).get('top', 530 if tipo == 'pequeno' else 1050) }}px; left: {{ layout.get('data_validade', {}).get('left', 200 if tipo == 'pequeno' else 350) }}px; font-size: {{ layout.get('data_validade', {}).get('fontSize', 1.2 if tipo == 'pequeno' else 2) }}rem; color: {{ layout.get('data_validade', {}).get('color', '#000000') }}; font-weight: bold; width: {{ layout.get('data_validade', {}).get('width', '100%') }}; text-align: center; display: {{ 'block' if layout.get('data_validade', {}).get('visible', True) != False else 'none' }};"
+                             data-locked="{{ 'true' if layout.get('data_validade', {}).get('locked', False) else 'false' }}">
+                            {% set dt_val = oferta.data_validade.split('-') %}
+                            {% if dt_val|length == 3 %}
+                                VALIDADE PRÓXIMA: {{ dt_val[2] }}/{{ dt_val[1] }}/{{ dt_val[0] }}
+                            {% else %}
+                                VALIDADE PRÓXIMA: {{ oferta.data_validade }}
+                            {% endif %}
+                        </div>
+                        {% endif %}
+
+                    </div>
+                </div>
+            </main>
+            
+            <!-- Sidebar Right: Properties -->
+            <aside class="sidebar-right">
+                <h2 class="sidebar-title">⚙️ Propriedades</h2>
+                <div class="properties-panel" id="properties-panel">
+                    <!-- Element Name Badge -->
+                    <div class="prop-group">
+                        <label>Elemento Selecionado</label>
+                        <div class="prop-badge" id="el-name">Nenhum</div>
+                    </div>
+                    
+                    <!-- Precise Position coordinates -->
+                    <div class="prop-group">
+                        <label>Posição Precisa (Pixels)</label>
+                        <div class="prop-inputs-row">
+                            <div class="prop-input-wrap">
+                                <span>X (L):</span>
+                                <input type="number" id="input-pos-x" min="0" max="2000" disabled>
+                            </div>
+                            <div class="prop-input-wrap">
+                                <span>Y (T):</span>
+                                <input type="number" id="input-pos-y" min="0" max="2000" disabled>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Font Size Adjustment -->
+                    <div class="prop-group">
+                        <label>Tamanho da Fonte (rem)</label>
+                        <div class="font-controls">
+                            <button class="btn-prop-small" id="btn-prop-font-minus" disabled>-</button>
+                            <input type="number" id="input-font-size" step="0.1" min="0.1" max="50" disabled>
+                            <button class="btn-prop-small" id="btn-prop-font-plus" disabled>+</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Box Width Slider -->
+                    <div class="prop-group">
+                        <label>Largura da Caixa: <span id="width-val-display">Auto</span></label>
+                        <input type="range" id="input-box-width" min="0" max="800" value="0" style="width: 100%; accent-color: var(--gold);" disabled>
+                        <small style="color: var(--text-dim); font-size: 0.72rem; text-align: center; display: block; margin-top: -2px;">(0 = Automático)</small>
+                    </div>
+                    
+                    <!-- Font Color Palette -->
+                    <div class="prop-group">
+                        <label>Cor do Texto</label>
+                        <div class="color-palette">
+                            <button class="color-btn" data-color="#000000" style="background-color: #000000;" title="Preto"></button>
+                            <button class="color-btn" data-color="#e63946" style="background-color: #e63946;" title="Vermelho"></button>
+                            <button class="color-btn" data-color="#fca311" style="background-color: #fca311;" title="Laranja"></button>
+                            <button class="color-btn" data-color="#0d9488" style="background-color: #0d9488;" title="Verde-Teal"></button>
+                            <button class="color-btn" data-color="#007bff" style="background-color: #007bff;" title="Azul"></button>
+                            <!-- Custom Color Picker Circle -->
+                            <div class="color-picker-wrapper" title="Cor Customizada">
+                                <input type="color" id="custom-color-picker" disabled>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Quick Alignment Helpers -->
+                    <div class="prop-group">
+                        <label>Centralizar Elemento</label>
+                        <div class="prop-inputs-row">
+                            <button class="btn-control-full" id="btn-align-center-x" title="Centralizar Horizontalmente na Página" disabled>🎯 Horizontal (H)</button>
+                            <button class="btn-control-full" id="btn-align-center-y" title="Centralizar Verticalmente na Página" disabled>🎯 Vertical (V)</button>
+                        </div>
+                    </div>
+                    
+                    <hr class="divider-prop">
+                    
+                    <!-- Alignment Guide Rules -->
+                    <div class="prop-group">
+                        <label>Guias Visuais</label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="chk-axes-ruler" checked>
+                            <span>📐 Mostrar Eixos Centrais</span>
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="chk-grid-ruler">
+                            <span>📏 Mostrar Grade (Grid)</span>
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="chk-bg-template" checked>
+                            <span>🖼️ Mostrar Gabarito Oficial</span>
+                        </label>
+                    </div>
+                    
+                    <hr class="divider-prop">
+                    
+                    <!-- Reset options -->
+                    {% if is_custom %}
+                    <div class="prop-group" style="margin-top: 10px;">
+                        <button class="btn-action-panel danger" id="btn-restore-default" title="Remover customizações e voltar ao padrão">
+                            ⚠️ Restaurar Layout Padrão
+                        </button>
+                    </div>
+                    {% endif %}
+                </div>
+            </aside>
+        </div>
+    </div>
+
+    <!-- Script Block -->
+    <script>
+        const els = document.querySelectorAll('.drag-el');
+        let selectedEls = [];
+        let isDragging = false;
+        let startX, startY;
+        let dragInitialPositions = [];
+        let zoomFactor = 1.0;
+
+        // Friendly layer names mapping
+        const layerNames = {
+            'produto': 'Produto',
+            'cifrao_main': 'Cifrão Principal',
+            'inteiro_main': 'Valor Inteiro',
+            'decimal_main': 'Valor Centavos',
+            'cifrao_club': 'Cifrão Club (Clube)',
+            'valor_club': 'Valor Club (Clube)',
+            'club_label': 'Etiqueta Club (Clube)',
+            'unidade': 'Unidade de Medida',
+            'data_validade': 'Data de Validade'
+        };
+
+        // Undo/Redo history variables
+        let history = [];
+        let historyIndex = -1;
+        const maxHistory = 50;
+
+        // Visual controls elements cache
+        const elNameBadge = document.getElementById('el-name');
+        const inputPosX = document.getElementById('input-pos-x');
+        const inputPosY = document.getElementById('input-pos-y');
+        const inputFontSize = document.getElementById('input-font-size');
+        const btnFontPlus = document.getElementById('btn-prop-font-plus');
+        const btnFontMinus = document.getElementById('btn-prop-font-minus');
+        const inputBoxWidth = document.getElementById('input-box-width');
+        const widthValDisplay = document.getElementById('width-val-display');
+        const colorPalette = document.querySelector('.color-palette');
+        const customColorPicker = document.getElementById('custom-color-picker');
+        const btnAlignCenterX = document.getElementById('btn-align-center-x');
+        const btnAlignCenterY = document.getElementById('btn-align-center-y');
+        const btnUndo = document.getElementById('btn-undo');
+        const btnRedo = document.getElementById('btn-redo');
+
+        // Capture layout state
+        function pushState() {
+            var state = {};
+            els.forEach(function(el) {
+                state[el.dataset.id] = {
+                    top: parseInt(el.style.top) || 0,
+                    left: parseInt(el.style.left) || 0,
+                    fontSize: parseFloat(el.style.fontSize) || 1,
+                    width: el.style.width || 'auto',
+                    color: el.style.color || '#000000',
+                    visible: el.style.display !== 'none',
+                    locked: el.dataset.locked === 'true'
+                };
+            });
+            historyIndex++;
+            history = history.slice(0, historyIndex);
+            history.push(state);
+            if (history.length > maxHistory) { history.shift(); historyIndex--; }
+            updateHistoryButtons();
+        }
+
+        // Apply a state from history
+        function applyState(state) {
+            els.forEach(function(el) {
+                var s = state[el.dataset.id];
+                if (s) {
+                    el.style.top = s.top + 'px';
+                    el.style.left = s.left + 'px';
+                    el.style.fontSize = s.fontSize + 'rem';
+                    el.style.width = s.width;
+                    el.style.color = s.color;
+                    el.style.display = s.visible ? 'block' : 'none';
+                    el.dataset.locked = s.locked ? 'true' : 'false';
+                }
+            });
+            renderLayersList();
+            if (selectedEls.length > 0) {
+                selectedEls = selectedEls.filter(el => document.body.contains(el));
+                updateSelectionUI();
+            }
+        }
+
+        function undo() {
+            if (historyIndex > 0) { historyIndex--; applyState(history[historyIndex]); }
+        }
+
+        function redo() {
+            if (historyIndex < history.length - 1) { historyIndex++; applyState(history[historyIndex]); }
+        }
+
+        function updateHistoryButtons() {
+            btnUndo.disabled = (historyIndex <= 0);
+            btnRedo.disabled = (historyIndex >= history.length - 1);
+        }
+
+        // Render Layers Left Sidebar
+        function renderLayersList() {
+            const listContainer = document.getElementById('layers-list');
+            listContainer.innerHTML = '';
+            
+            els.forEach(function(el) {
+                const id = el.dataset.id;
+                const name = layerNames[id] || id.toUpperCase();
+                const isVisible = el.style.display !== 'none';
+                const isLocked = el.dataset.locked === 'true';
+                const isSelected = selectedEls.includes(el);
+                
+                const item = document.createElement('div');
+                item.className = 'layer-item' + (isSelected ? ' active' : '');
+                
+                item.innerHTML = `
+                    <div class="layer-info">
+                        <span class="layer-icon-indicator">📁</span>
+                        <span class="layer-name-text">${name}</span>
+                    </div>
+                    <div class="layer-actions">
+                        <button class="layer-action-btn btn-layer-visibility ${isVisible ? 'active' : 'inactive'}" title="${isVisible ? 'Ocultar Camada' : 'Exibir Camada'}">
+                            ${isVisible ? '👁️' : '🙈'}
+                        </button>
+                        <button class="layer-action-btn btn-layer-lock ${isLocked ? 'active' : ''}" title="${isLocked ? 'Desbloquear Posição' : 'Bloquear Posição'}">
+                            ${isLocked ? '🔒' : '🔓'}
+                        </button>
+                    </div>
+                `;
+                
+                // Select layer on clicking info area
+                item.querySelector('.layer-info').addEventListener('click', function(e) {
+                    selectElement(el, e.ctrlKey);
+                });
+                
+                // Toggle visibility action button
+                item.querySelector('.btn-layer-visibility').addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    const nowVisible = el.style.display !== 'none';
+                    el.style.display = nowVisible ? 'none' : 'block';
+                    
+                    pushState();
+                    renderLayersList();
+                    if (isSelected) {
+                        updateSelectionUI();
+                    }
+                });
+                
+                // Toggle lock position action button
+                item.querySelector('.btn-layer-lock').addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    const nowLocked = el.dataset.locked === 'true';
+                    el.dataset.locked = nowLocked ? 'false' : 'true';
+                    
+                    pushState();
+                    renderLayersList();
+                    if (isSelected) {
+                        updateSelectionUI();
+                    }
+                });
+                
+                listContainer.appendChild(item);
+            });
+        }
+
+        // Element selection function
+        function selectElement(el, toggle = false) {
+            if (toggle) {
+                const idx = selectedEls.indexOf(el);
+                if (idx > -1) {
+                    selectedEls.splice(idx, 1);
+                } else {
+                    selectedEls.push(el);
+                }
+            } else {
+                selectedEls = [el];
+            }
+            updateSelectionUI();
+        }
+
+        // Update properties panel based on selectedEls
+        function updateSelectionUI() {
+            els.forEach(function(e) { e.classList.remove('selected'); });
+            selectedEls.forEach(function(e) { e.classList.add('selected'); });
+            
+            if (selectedEls.length === 0) {
+                elNameBadge.innerText = 'Nenhum';
+                inputPosX.setAttribute('disabled', 'true');
+                inputPosY.setAttribute('disabled', 'true');
+                inputFontSize.setAttribute('disabled', 'true');
+                btnFontPlus.setAttribute('disabled', 'true');
+                btnFontMinus.setAttribute('disabled', 'true');
+                inputBoxWidth.setAttribute('disabled', 'true');
+                customColorPicker.setAttribute('disabled', 'true');
+                btnAlignCenterX.setAttribute('disabled', 'true');
+                btnAlignCenterY.setAttribute('disabled', 'true');
+                
+                inputPosX.value = '';
+                inputPosY.value = '';
+                inputFontSize.value = '';
+                inputBoxWidth.value = 0;
+                widthValDisplay.innerText = 'Auto';
+                document.querySelectorAll('.color-btn').forEach(b => b.classList.remove('active'));
+            } else if (selectedEls.length === 1) {
+                const el = selectedEls[0];
+                const name = layerNames[el.dataset.id] || el.dataset.id.toUpperCase();
+                elNameBadge.innerText = name;
+                
+                inputPosX.removeAttribute('disabled');
+                inputPosY.removeAttribute('disabled');
+                inputFontSize.removeAttribute('disabled');
+                btnFontPlus.removeAttribute('disabled');
+                btnFontMinus.removeAttribute('disabled');
+                inputBoxWidth.removeAttribute('disabled');
+                customColorPicker.removeAttribute('disabled');
+                btnAlignCenterX.removeAttribute('disabled');
+                btnAlignCenterY.removeAttribute('disabled');
+                
+                updatePropertyInputs();
+            } else {
+                elNameBadge.innerText = `Múltiplos (${selectedEls.length})`;
+                
+                inputPosX.setAttribute('disabled', 'true');
+                inputPosY.setAttribute('disabled', 'true');
+                inputBoxWidth.setAttribute('disabled', 'true');
+                
+                inputFontSize.setAttribute('disabled', 'true');
+                btnFontPlus.removeAttribute('disabled');
+                btnFontMinus.removeAttribute('disabled');
+                customColorPicker.removeAttribute('disabled');
+                btnAlignCenterX.removeAttribute('disabled');
+                btnAlignCenterY.removeAttribute('disabled');
+                
+                inputPosX.value = '';
+                inputPosY.value = '';
+                inputFontSize.value = '';
+                inputBoxWidth.value = 0;
+                widthValDisplay.innerText = 'Auto';
+                
+                let firstColor = rgbToHex(selectedEls[0].style.color);
+                let allSameColor = selectedEls.every(el => rgbToHex(el.style.color) === firstColor);
+                if (allSameColor) {
+                    customColorPicker.value = firstColor;
+                    document.querySelectorAll('.color-btn').forEach(btn => {
+                        if (btn.dataset.color.toLowerCase() === firstColor.toLowerCase()) {
+                            btn.classList.add('active');
+                        } else {
+                            btn.classList.remove('active');
+                        }
+                    });
+                } else {
+                    document.querySelectorAll('.color-btn').forEach(btn => btn.classList.remove('active'));
+                }
+            }
+            renderLayersList();
+        }
+
+        // Update properties panel input fields (for single selection)
+        function updatePropertyInputs() {
+            if (selectedEls.length !== 1) return;
+            const el = selectedEls[0];
+            
+            inputPosX.value = parseInt(el.style.left) || 0;
+            inputPosY.value = parseInt(el.style.top) || 0;
+            
+            const size = parseFloat(el.style.fontSize) || 1;
+            inputFontSize.value = size.toFixed(1);
+            
+            const w = el.style.width;
+            if (!w || w === 'auto' || w.includes('%')) {
+                inputBoxWidth.value = 0;
+                widthValDisplay.innerText = 'Auto';
+            } else {
+                const numW = parseInt(w) || 0;
+                inputBoxWidth.value = numW;
+                widthValDisplay.innerText = numW + 'px';
+            }
+            
+            const curColor = rgbToHex(el.style.color) || '#000000';
+            
+            document.querySelectorAll('.color-btn').forEach(btn => {
+                if (btn.dataset.color.toLowerCase() === curColor.toLowerCase()) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+            customColorPicker.value = curColor;
+        }
+
+        // Snap coordinates helper
+        function snapToGrid(val) {
+            var gridCheck = document.getElementById('chk-grid-ruler');
+            if (gridCheck && gridCheck.checked) {
+                return Math.round(val / 20) * 20;
+            }
+            return val;
+        }
+
+        // Start Drag element movement
+        function startDrag(e, el) {
+            if (el.dataset.locked === 'true') return;
+            
+            isDragging = true;
+            
+            if (!selectedEls.includes(el)) {
+                selectElement(el, e.ctrlKey);
+            }
+
+            var clientX = e.clientX || (e.touches && e.touches[0].clientX);
+            var clientY = e.clientY || (e.touches && e.touches[0].clientY);
+
+            startX = clientX;
+            startY = clientY;
+            
+            dragInitialPositions = selectedEls.map(function(selEl) {
+                return {
+                    el: selEl,
+                    top: parseInt(window.getComputedStyle(selEl).top) || 0,
+                    left: parseInt(window.getComputedStyle(selEl).left) || 0,
+                    locked: selEl.dataset.locked === 'true'
+                };
+            });
+        }
+
+        function doDrag(e) {
+            if (!isDragging || selectedEls.length === 0) return;
+            
+            var clientX = e.clientX || (e.changedTouches && e.changedTouches[0].clientX);
+            var clientY = e.clientY || (e.changedTouches && e.changedTouches[0].clientY);
+            
+            var dx = (clientX - startX) / zoomFactor;
+            var dy = (clientY - startY) / zoomFactor;
+            
+            dragInitialPositions.forEach(function(pos) {
+                if (pos.locked) return;
+                pos.el.style.top = snapToGrid(pos.top + dy) + 'px';
+                pos.el.style.left = snapToGrid(pos.left + dx) + 'px';
+            });
+            
+            if (selectedEls.length === 1) {
+                inputPosX.value = parseInt(selectedEls[0].style.left);
+                inputPosY.value = parseInt(selectedEls[0].style.top);
+            }
+        }
+
+        function endDrag() {
+            if (isDragging && selectedEls.length > 0) { pushState(); }
+            isDragging = false;
+        }
+
+        // Attach dragging events
+        els.forEach(function(el) {
+            el.addEventListener('mousedown', function(e) { startDrag(e, el); });
+            el.addEventListener('touchstart', function(e) { e.preventDefault(); startDrag(e, el); }, { passive: false });
+        });
+
+        document.addEventListener('mousemove', doDrag);
+        document.addEventListener('touchmove', doDrag, { passive: false });
+        document.addEventListener('mouseup', endDrag);
+        document.addEventListener('touchend', endDrag);
+
+        // Keyboard movement controls & shortcuts
+        document.addEventListener('keydown', function(e) {
+            if (e.ctrlKey && e.key === 'z') { e.preventDefault(); undo(); return; }
+            if (e.ctrlKey && e.key === 'y') { e.preventDefault(); redo(); return; }
+            if (e.ctrlKey && e.key === '=') { e.preventDefault(); adjustZoom(0.1); return; }
+            if (e.ctrlKey && e.key === '-') { e.preventDefault(); adjustZoom(-0.1); return; }
+            
+            if (selectedEls.length === 0) return;
+            if (document.activeElement.tagName === 'INPUT') return;
+            
+            var step = e.shiftKey ? 10 : 1;
+            var moved = false;
+            
+            selectedEls.forEach(function(el) {
+                if (el.dataset.locked === 'true') return;
+                
+                var top = parseInt(el.style.top) || 0;
+                var left = parseInt(el.style.left) || 0;
+                
+                if (e.key === 'ArrowUp') { e.preventDefault(); el.style.top = (top - step) + 'px'; moved = true; }
+                if (e.key === 'ArrowDown') { e.preventDefault(); el.style.top = (top + step) + 'px'; moved = true; }
+                if (e.key === 'ArrowLeft') { e.preventDefault(); el.style.left = (left - step) + 'px'; moved = true; }
+                if (e.key === 'ArrowRight') { e.preventDefault(); el.style.left = (left + step) + 'px'; moved = true; }
+            });
+            
+            if (moved) {
+                pushState();
+                updateSelectionUI();
+            }
+        });
+
+        // Properties Inputs event listeners
+        inputPosX.addEventListener('input', function() {
+            if (selectedEls.length !== 1 || selectedEls[0].dataset.locked === 'true') return;
+            selectedEls[0].style.left = (parseInt(this.value) || 0) + 'px';
+        });
+        inputPosX.addEventListener('change', function() {
+            pushState();
+        });
+
+        inputPosY.addEventListener('input', function() {
+            if (selectedEls.length !== 1 || selectedEls[0].dataset.locked === 'true') return;
+            selectedEls[0].style.top = (parseInt(this.value) || 0) + 'px';
+        });
+        inputPosY.addEventListener('change', function() {
+            pushState();
+        });
+
+        inputFontSize.addEventListener('input', function() {
+            if (selectedEls.length !== 1) return;
+            var size = parseFloat(this.value) || 1;
+            selectedEls[0].style.fontSize = size + 'rem';
+        });
+        inputFontSize.addEventListener('change', function() {
+            pushState();
+        });
+
+        btnFontPlus.addEventListener('click', function() {
+            if (selectedEls.length === 0) return;
+            selectedEls.forEach(el => {
+                var currentSize = parseFloat(el.style.fontSize) || 1;
+                var newSize = currentSize + 0.5;
+                el.style.fontSize = newSize.toFixed(1) + 'rem';
+            });
+            if (selectedEls.length === 1) {
+                inputFontSize.value = parseFloat(selectedEls[0].style.fontSize).toFixed(1);
+            }
+            pushState();
+        });
+
+        btnFontMinus.addEventListener('click', function() {
+            if (selectedEls.length === 0) return;
+            selectedEls.forEach(el => {
+                var currentSize = parseFloat(el.style.fontSize) || 1;
+                if (currentSize > 0.5) {
+                    var newSize = currentSize - 0.5;
+                    el.style.fontSize = newSize.toFixed(1) + 'rem';
+                }
+            });
+            if (selectedEls.length === 1) {
+                inputFontSize.value = parseFloat(selectedEls[0].style.fontSize).toFixed(1);
+            }
+            pushState();
+        });
+
+        inputBoxWidth.addEventListener('input', function(e) {
+            if (selectedEls.length !== 1) return;
+            var val = e.target.value;
+            if (val == 0) {
+                selectedEls[0].style.width = 'auto';
+                widthValDisplay.innerText = 'Auto';
+            } else {
+                selectedEls[0].style.width = val + 'px';
+                widthValDisplay.innerText = val + 'px';
+            }
+        });
+        inputBoxWidth.addEventListener('change', function() {
+            pushState();
+        });
+
+        // Quick colors palette select
+        document.querySelectorAll('.color-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                if (selectedEls.length === 0) return;
+                const color = this.dataset.color;
+                selectedEls.forEach(el => {
+                    el.style.color = color;
+                });
+                customColorPicker.value = color;
+                
+                document.querySelectorAll('.color-btn').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                pushState();
+            });
+        });
+
+        // Custom HTML color picker
+        customColorPicker.addEventListener('input', function() {
+            if (selectedEls.length === 0) return;
+            selectedEls.forEach(el => {
+                el.style.color = this.value;
+            });
+            document.querySelectorAll('.color-btn').forEach(b => b.classList.remove('active'));
+        });
+        customColorPicker.addEventListener('change', function() {
+            pushState();
+        });
+
+        // Alignment actions
+        btnAlignCenterX.addEventListener('click', function() {
+            if (selectedEls.length === 0) return;
+            var canvas = document.getElementById('canvas');
+            
+            if (selectedEls.length === 1) {
+                var selectedEl = selectedEls[0];
+                var centerLeft = Math.round((canvas.clientWidth - selectedEl.offsetWidth) / 2);
+                selectedEl.style.left = centerLeft + 'px';
+                inputPosX.value = centerLeft;
+            } else {
+                var minLeft = Infinity;
+                var maxRight = -Infinity;
+                
+                selectedEls.forEach(function(el) {
+                    var left = parseInt(el.style.left) || 0;
+                    var width = el.offsetWidth;
+                    minLeft = Math.min(minLeft, left);
+                    maxRight = Math.max(maxRight, left + width);
+                });
+                
+                var groupWidth = maxRight - minLeft;
+                var groupCenter = minLeft + groupWidth / 2;
+                
+                var targetCenter = canvas.clientWidth / 2;
+                var offset = Math.round(targetCenter - groupCenter);
+                
+                selectedEls.forEach(function(el) {
+                    if (el.dataset.locked === 'true') return;
+                    var currentLeft = parseInt(el.style.left) || 0;
+                    el.style.left = (currentLeft + offset) + 'px';
+                });
+            }
+            pushState();
+        });
+
+        btnAlignCenterY.addEventListener('click', function() {
+            if (selectedEls.length === 0) return;
+            var canvas = document.getElementById('canvas');
+            
+            if (selectedEls.length === 1) {
+                var selectedEl = selectedEls[0];
+                var centerTop = Math.round((canvas.clientHeight - selectedEl.offsetHeight) / 2);
+                selectedEl.style.top = centerTop + 'px';
+                inputPosY.value = centerTop;
+            } else {
+                var minTop = Infinity;
+                var maxBottom = -Infinity;
+                
+                selectedEls.forEach(function(el) {
+                    var top = parseInt(el.style.top) || 0;
+                    var height = el.offsetHeight;
+                    minTop = Math.min(minTop, top);
+                    maxBottom = Math.max(maxBottom, top + height);
+                });
+                
+                var groupHeight = maxBottom - minTop;
+                var groupCenter = minTop + groupHeight / 2;
+                
+                var targetCenter = canvas.clientHeight / 2;
+                var offset = Math.round(targetCenter - groupCenter);
+                
+                selectedEls.forEach(function(el) {
+                    if (el.dataset.locked === 'true') return;
+                    var currentTop = parseInt(el.style.top) || 0;
+                    el.style.top = (currentTop + offset) + 'px';
+                });
+            }
+            pushState();
+        });
+
+        // Visual guide rulers checkbox toggles
+        document.getElementById('chk-axes-ruler').addEventListener('change', function() {
+            document.getElementById('ruler-x').style.display = this.checked ? 'block' : 'none';
+            document.getElementById('ruler-y').style.display = this.checked ? 'block' : 'none';
+        });
+
+        document.getElementById('chk-grid-ruler').addEventListener('change', function() {
+            document.getElementById('ruler-grid').style.display = this.checked ? 'block' : 'none';
+        });
+
+        // Undo & Redo buttons click
+        btnUndo.addEventListener('click', undo);
+        btnRedo.addEventListener('click', redo);
+
+        // Zoom Management Lógicas
+        const canvasZoomWrapper = document.getElementById('canvas-zoom-wrapper');
+        const zoomFactorDisplay = document.getElementById('zoom-factor');
+        
+        function adjustZoom(amount) {
+            zoomFactor = Math.max(0.3, Math.min(2.5, zoomFactor + amount));
+            updateZoomUI();
+        }
+
+        function updateZoomUI() {
+            canvasZoomWrapper.style.transform = `scale(${zoomFactor})`;
+            zoomFactorDisplay.innerText = `${Math.round(zoomFactor * 100)}%`;
+        }
+
+        document.getElementById('btn-zoom-in').addEventListener('click', () => adjustZoom(0.1));
+        document.getElementById('btn-zoom-out').addEventListener('click', () => adjustZoom(-0.1));
+        document.getElementById('btn-zoom-reset').addEventListener('click', () => {
+            zoomFactor = 1.0;
+            updateZoomUI();
+        });
+
+        // Reset Layout to Global Default action
+        const restoreBtn = document.getElementById('btn-restore-default');
+        if (restoreBtn) {
+            restoreBtn.addEventListener('click', function() {
+                if (confirm('Tem certeza que deseja apagar as customizações deste cartaz e restaurar o layout padrão global?')) {
+                    fetch('{{ save_url }}', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(null)
+                    })
+                    .then(function(r) { return r.json(); })
+                    .then(function(data) {
+                        if (data.status === 'success') {
+                            alert('Layout padrão restaurado!');
+                            window.location.reload();
+                        } else {
+                            alert('Erro ao restaurar layout padrão.');
+                        }
+                    })
+                    .catch(function(err) {
+                        alert('Erro na rede ao restaurar layout: ' + err);
+                    });
+                }
+            });
+        }
+
+        // Save layout fetch request
+        function salvarLayout() {
+            const layoutData = {};
+            els.forEach(function(el) {
+                layoutData[el.dataset.id] = {
+                    top: parseInt(el.style.top) || 0,
+                    left: parseInt(el.style.left) || 0,
+                    fontSize: parseFloat(el.style.fontSize) || 1,
+                    width: el.style.width || 'auto',
+                    color: el.style.color || '#000000',
+                    visible: el.style.display !== 'none',
+                    locked: el.dataset.locked === 'true'
+                };
+            });
+
+            fetch('{{ save_url }}', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(layoutData)
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.status === 'success') {
+                    alert('Layout salvo com sucesso!');
+                } else {
+                    alert('Erro ao salvar layout.');
+                }
+            })
+            .catch(function(err) {
+                alert('Erro de comunicação com o servidor: ' + err);
+            });
+        }
+
+        // Helper: Convert rgb(r, g, b) string to Hex format #rrggbb
+        function rgbToHex(rgbStr) {
+            if (!rgbStr) return '#000000';
+            if (rgbStr.startsWith('#')) return rgbStr;
+            const matches = rgbStr.match(/^rgb\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)$/i);
+            if (!matches) return '#000000';
+            const r = parseInt(matches[1]).toString(16).padStart(2, '0');
+            const g = parseInt(matches[2]).toString(16).padStart(2, '0');
+            const b = parseInt(matches[3]).toString(16).padStart(2, '0');
+            return `#${r}${g}${b}`;
+        }
+
+        // Click outside elements to deselect
+        document.querySelector('.canvas-area').addEventListener('mousedown', function(e) {
+            if (e.target === this || e.target === canvasZoomWrapper) {
+                selectedEls = [];
+                updateSelectionUI();
+            }
+        });
+
+        // Initialize state, zoom, and sidebar layers
+        pushState();
+        updateSelectionUI();
+
+        // Toggle background template image
+        const chkBgTemplate = document.getElementById('chk-bg-template');
+        if (chkBgTemplate) {
+            chkBgTemplate.addEventListener('change', function() {
+                const canvas = document.getElementById('canvas');
+                if (this.checked) {
+                    const bgUrl = "{{ tipo }}" === 'pequeno' ? '/static/images/background_pequeno.png' : '/static/images/background_grande.png';
+                    canvas.style.backgroundImage = `url('${bgUrl}')`;
+                    canvas.style.backgroundSize = "cover";
+                    canvas.style.backgroundPosition = "center";
+                } else {
+                    canvas.style.backgroundImage = "none";
+                    canvas.style.backgroundColor = "#ffffff";
+                }
+            });
+            
+            // Trigger change event on load to initialize if checked by default
+            chkBgTemplate.dispatchEvent(new Event('change'));
+        }
+        
+        // Auto fit zoom factor on startup to match window size nicely
+        window.addEventListener('load', function() {
+            const canvasEl = document.getElementById('canvas');
+            const areaEl = document.querySelector('.canvas-area');
+            const spaceNeededH = canvasEl.offsetHeight + 120; // 60px padding top and bottom
+            const areaAvailableH = areaEl.clientHeight;
+            
+            if (areaAvailableH < spaceNeededH) {
+                zoomFactor = Math.floor((areaAvailableH / spaceNeededH) * 10) / 10;
+                zoomFactor = Math.max(0.4, Math.min(1.0, zoomFactor));
+                updateZoomUI();
+            }
+        });
+    </script>
+</body>
+</html>

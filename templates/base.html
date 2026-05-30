@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>SuperOfertas Cartazes</title>
+
+    <!-- PWA: Manifest -->
+    <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+
+    <!-- PWA: Meta tags Android/Chrome -->
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#0a0a0a">
+    <meta name="application-name" content="Cartazes">
+    <meta name="description" content="Sistema de cartazeamento de ofertas do supermercado">
+
+    <!-- PWA: Meta tags iOS (Safari) -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta name="apple-mobile-web-app-title" content="Cartazes">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/icon-192x192.png') }}">
+
+    <!-- Ícones -->
+    <link rel="icon" type="image/png" sizes="192x192" href="{{ url_for('static', filename='icons/icon-192x192.png') }}">
+
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=1.2">
+    {% block head %}{% endblock %}
+</head>
+<body>
+
+    <!-- NAVBAR -->
+    <nav class="navbar no-print">
+        <div class="nav-container">
+            <a href="{{ url_for('index') }}" class="logo">
+                🏷️ SuperOfertas
+            </a>
+            <button class="hamburger no-print" id="hamburger-btn" aria-label="Menu">
+                <span></span><span></span><span></span>
+            </button>
+            <div class="nav-links" id="nav-links">
+                <!-- Botão PWA Navbar -->
+                <a href="#" id="nav-install-btn" class="nav-install" style="display: none; color: var(--gold-light); font-weight: 600;" title="Instalar aplicativo">
+                    📥 Instalar App
+                </a>
+                {% if session.get('user_id') %}
+                    <!-- Links principais (também no bottom nav) — escondidos no mobile -->
+                    <a href="{{ url_for('index') }}" class="nav-desktop-only {{ 'active' if request.endpoint == 'index' else '' }}">
+                       Painel
+                    </a>
+
+                    {% if session.get('role') == 'admin' %}
+                        <a href="{{ url_for('admin') }}" class="nav-desktop-only {{ 'active' if request.endpoint == 'admin' else '' }}">
+                           Admin
+                        </a>
+                        <a href="{{ url_for('admin_dashboard') }}" class="nav-desktop-only {{ 'active' if request.endpoint == 'admin_dashboard' else '' }}">
+                           Dashboard
+                        </a>
+                    {% endif %}
+
+                    <a href="{{ url_for('perfil') }}" class="nav-desktop-only {{ 'active' if request.endpoint == 'perfil' else '' }}">
+                       Perfil
+                    </a>
+
+                    <!-- Links exclusivos do hamburger (admin secundário) -->
+                    {% if session.get('role') == 'admin' %}
+                        <a href="{{ url_for('admin_usuarios') }}"
+                           class="{{ 'active' if request.endpoint == 'admin_usuarios' else '' }}">
+                           👥 Usuários
+                        </a>
+
+                        <a href="{{ url_for('admin_auditoria') }}"
+                           class="{{ 'active' if request.endpoint == 'admin_auditoria' else '' }}">
+                           📋 Auditoria
+                        </a>
+                    {% endif %}
+
+                    <a href="{{ url_for('logout') }}" class="nav-logout">
+                        🚪 Sair ({{ session.get('username') }})
+                    </a>
+                {% else %}
+                    <a href="{{ url_for('login') }}">Acessar</a>
+                {% endif %}
+            </div>
+        </div>
+    </nav>
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        var btn = document.getElementById('hamburger-btn');
+        var links = document.getElementById('nav-links');
+        if (btn && links) {
+            btn.addEventListener('click', function() {
+                links.classList.toggle('nav-open');
+                btn.classList.toggle('active');
+            });
+            document.addEventListener('click', function(e) {
+                if (!btn.contains(e.target) && !links.contains(e.target)) {
+                    links.classList.remove('nav-open');
+                    btn.classList.remove('active');
+                }
+            });
+        }
+    });
+    </script>
+
+    <!-- BANNER PWA INSTALL -->
+    <div id="pwa-install-banner" class="pwa-banner no-print" style="display:none;">
+        <div class="pwa-banner-content">
+            <img src="{{ url_for('static', filename='icons/icon-72x72.png') }}"
+                 alt="Ícone" class="pwa-banner-icon">
+            <div class="pwa-banner-text">
+                <strong>Instalar App</strong>
+                <span>Adicione à tela inicial para acesso rápido!</span>
+            </div>
+            <button id="pwa-install-btn" class="pwa-install-btn">Instalar</button>
+            <button id="pwa-dismiss-btn" class="pwa-dismiss-btn">✕</button>
+        </div>
+    </div>
+
+    <!-- TOAST NOTIFICATIONS -->
+    <div id="toast-container" class="toast-container no-print"></div>
+
+    <!-- CONTEÚDO PRINCIPAL -->
+    <main class="main-container no-print">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="flash-messages" style="display:none;" data-flash='{{ messages | tojson }}'>
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+        {% block scripts %}{% endblock %}
+    </main>
+
+    <!-- BOTTOM NAV MOBILE -->
+    {% if session.get('user_id') %}
+    <nav class="bottom-nav no-print" id="bottom-nav">
+        <a href="{{ url_for('index') }}" class="{{ 'active' if request.endpoint == 'index' else '' }}">
+            <span class="bnav-icon">🏷️</span>
+            <span>Ofertas</span>
+        </a>
+        {% if session.get('role') == 'admin' %}
+        <a href="{{ url_for('admin') }}" class="{{ 'active' if request.endpoint == 'admin' else '' }}">
+            <span class="bnav-icon">⚙️</span>
+            <span>Admin</span>
+        </a>
+        <a href="{{ url_for('admin_dashboard') }}" class="{{ 'active' if request.endpoint == 'admin_dashboard' else '' }}">
+            <span class="bnav-icon">📊</span>
+            <span>Dashboard</span>
+        </a>
+        {% endif %}
+        <a href="{{ url_for('perfil') }}" class="{{ 'active' if request.endpoint == 'perfil' else '' }}">
+            <span class="bnav-icon">👤</span>
+            <span>Perfil</span>
+        </a>
+        <a href="{{ url_for('logout') }}">
+            <span class="bnav-icon">🚪</span>
+            <span>Sair</span>
+        </a>
+    </nav>
+    {% endif %}
+
+    <script>
+    function showToast(message, type) {
+        type = type || 'success';
+        var container = document.getElementById('toast-container');
+        if (!container) return;
+        var toast = document.createElement('div');
+        toast.className = 'toast ' + type;
+        var icons = { success: '✅', error: '❌' };
+        toast.innerHTML = '<span class="toast-icon">' + (icons[type] || 'ℹ️') + '</span>' +
+            '<span class="toast-msg">' + message + '</span>' +
+            '<button class="toast-close" onclick="this.parentElement.classList.add(\'toast-out\');setTimeout(function(){this.parentElement.remove()}.bind(this),350)">✕</button>';
+        container.appendChild(toast);
+        setTimeout(function() {
+            toast.classList.add('toast-out');
+            setTimeout(function() { if (toast.parentElement) toast.remove(); }, 350);
+        }, 4500);
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        var flashDiv = document.querySelector('.flash-messages[data-flash]');
+        if (flashDiv) {
+            try {
+                var msgs = JSON.parse(flashDiv.dataset.flash);
+                msgs.forEach(function(m) {
+                    var cat = m[0], msg = m[1];
+                    setTimeout(function() { showToast(msg, cat === 'error' ? 'error' : 'success'); }, 100);
+                });
+            } catch(e) {}
+        }
+    });
+    </script>
+
+    <!-- SERVICE WORKER + PWA -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js')
+                    .then(reg => console.log('[PWA] SW registrado na raiz:', reg.scope))
+                    .catch(err => console.warn('[PWA] Erro ao registrar SW:', err));
+            });
+        }
+
+        let deferredPrompt = null;
+        const banner = document.getElementById('pwa-install-banner');
+        const installBtn = document.getElementById('pwa-install-btn');
+        const dismissBtn = document.getElementById('pwa-dismiss-btn');
+        const navInstallBtn = document.getElementById('nav-install-btn');
+
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            // Exibir as opções de instalação (banner inferior e link no topo)
+            if (banner && !localStorage.getItem('pwa-dismissed')) {
+                banner.style.display = 'flex';
+            }
+            if (navInstallBtn) {
+                navInstallBtn.style.display = 'inline-flex';
+                navInstallBtn.style.alignItems = 'center';
+            }
+        });
+
+        const triggerInstall = async () => {
+            if (!deferredPrompt) return;
+            if (banner) banner.style.display = 'none';
+            deferredPrompt.prompt();
+            const { outcome } = await deferredPrompt.userChoice;
+            console.log(`[PWA] Escolha de instalação: ${outcome}`);
+            deferredPrompt = null;
+            if (navInstallBtn) navInstallBtn.style.display = 'none';
+        };
+
+        if (installBtn) {
+            installBtn.addEventListener('click', triggerInstall);
+        }
+
+        if (navInstallBtn) {
+            navInstallBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                triggerInstall();
+            });
+        }
+
+        if (dismissBtn) {
+            dismissBtn.addEventListener('click', () => {
+                if (banner) banner.style.display = 'none';
+                localStorage.setItem('pwa-dismissed', '1');
+                // O botão do menu de topo continua disponível caso o usuário mude de ideia!
+            });
+        }
+
+        window.addEventListener('appinstalled', () => {
+            if (banner) banner.style.display = 'none';
+            if (navInstallBtn) navInstallBtn.style.display = 'none';
+            deferredPrompt = null;
+            console.log('[PWA] Aplicativo instalado com sucesso');
+        });
+    </script>
+
+    <!-- MODAL DE CONFIRMAÇÃO REUTILIZÁVEL -->
+    <div id="confirm-modal" class="modal-overlay no-print" style="display:none;">
+        <div class="modal-box">
+            <div class="modal-header">
+                <h3 id="confirm-modal-title">Confirmação</h3>
+                <button class="modal-close-btn" onclick="closeConfirmModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p id="confirm-modal-message">Tem certeza?</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-sm btn-secondary" onclick="closeConfirmModal()">Cancelar</button>
+                <button id="confirm-modal-yes" class="btn-sm btn-danger">Confirmar</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    function showConfirmModal(title, message, onConfirm) {
+        document.getElementById('confirm-modal-title').textContent = title;
+        document.getElementById('confirm-modal-message').textContent = message;
+        document.getElementById('confirm-modal').style.display = 'flex';
+        const oldBtn = document.getElementById('confirm-modal-yes');
+        const newBtn = oldBtn.cloneNode(true);
+        oldBtn.parentNode.replaceChild(newBtn, oldBtn);
+        newBtn.addEventListener('click', function() {
+            document.getElementById('confirm-modal').style.display = 'none';
+            onConfirm();
+        });
+    }
+
+    function closeConfirmModal() {
+        document.getElementById('confirm-modal').style.display = 'none';
+    }
+
+    document.addEventListener('click', function(e) {
+        const modal = document.getElementById('confirm-modal');
+        if (e.target === modal) {
+            modal.style.display = 'none';
+        }
+    });
+    </script>
+
+</body>
+</html>

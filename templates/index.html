@@ -1,0 +1,206 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<div class="page-header">
+    <h1 class="page-title">Ofertas do Dia: {{ data_hoje }}</h1>
+    <form method="GET" action="{{ url_for('index') }}"
+          style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+        <span class="filter-label">Ver outra data:</span>
+        <input type="date" name="data" value="{{ data_selecionada }}"
+               onchange="this.form.submit()" class="input-date-inline">
+        <label class="filter-label" style="display: flex; align-items: center; gap: 6px; cursor: pointer; user-select: none; margin-left: 4px;">
+            <input type="checkbox" name="ativas_apenas" value="1" {% if ativas_apenas %}checked{% endif %} onchange="this.form.submit()" style="accent-color: var(--gold); cursor: pointer; width: 16px; height: 16px;">
+            <span>Apenas Ativas</span>
+        </label>
+        <span class="filter-label">🔍</span>
+        <input type="text" name="busca" value="{{ busca }}"
+               placeholder="Buscar produto..." class="input-search-inline" style="min-width:150px;">
+        <button type="submit" class="btn-sm btn-gold" style="padding:0.4rem 0.6rem;">Buscar</button>
+        {% if busca %}<a href="{{ url_for('index', data=data_selecionada, ativas_apenas=1 if ativas_apenas else 0) }}" class="btn-sm btn-secondary">✕</a>{% endif %}
+    </form>
+</div>
+
+<div class="table-container">
+    <form id="form-batch-print" method="GET" action="{{ url_for('cartazes_multi') }}" target="_blank">
+        <!-- Barra de Ações em Lote -->
+        <div style="padding: 1rem 1.25rem; background: var(--bg-card-2); border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <input type="checkbox" id="select-all-offers" onchange="toggleSelectAllOffers(this)" style="cursor: pointer; width: 18px; height: 18px; accent-color: var(--gold);">
+                <label for="select-all-offers" style="font-size: 0.85rem; font-weight: 700; cursor: pointer; color: var(--gold-light); user-select: none;">Selecionar Todas</label>
+            </div>
+            <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 600;">Imprimir Selecionadas:</span>
+                <button type="submit" name="tipo" value="a4" class="btn-sm btn-print" onclick="return checkBatchSelection()">🖨️ Lote A4</button>
+                <button type="submit" name="tipo" value="pequeno" class="btn-sm btn-info" onclick="return checkBatchSelection()">🖨️ Lote Pequeno</button>
+            </div>
+        </div>
+
+        <table id="ofertas-table">
+            <thead>
+                <tr>
+                    <th style="width: 40px; text-align: center;"></th>
+                    <th onclick="sortTable(1)" style="cursor:pointer;">Produto <span class="sort-indicator">⇅</span></th>
+                    <th onclick="sortTable(2)" style="cursor:pointer;">Unidade <span class="sort-indicator">⇅</span></th>
+                    <th onclick="sortTable(3)" style="cursor:pointer;">Preço Oferta <span class="sort-indicator">⇅</span></th>
+                    <th onclick="sortTable(4)" style="cursor:pointer;">Preço Clube <span class="sort-indicator">⇅</span></th>
+                    <th style="text-align: right;">Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% set hoje = today if today else '' %}
+                {% for oferta in ofertas %}
+                {% set vencida = oferta.data_validade and oferta.data_validade < data_selecionada %}
+                <tr onclick="toggleRowCheckbox(event, this)" style="cursor: pointer;" title="Clique na linha para selecionar/deselecionar" class="{{ 'row-vencida' if vencida else '' }}">
+                    <td style="text-align: center; width: 40px;" onclick="event.stopPropagation()">
+                        <input type="checkbox" name="ids" value="{{ oferta.id }}" class="offer-cb" style="cursor: pointer; width: 16px; height: 16px; accent-color: var(--gold);" onchange="updateMasterCb()">
+                    </td>
+                    <td>
+                        <strong>{{ oferta.produto }}</strong>
+                        {% if vencida %}<span class="badge-vencida">VENCIDA</span>{% endif %}
+                    </td>
+                    <td style="color: var(--text-muted);">{{ oferta.unidade }}</td>
+                    <td class="price-col" style="font-size: 1.15rem;">
+                        R$ {{ oferta.preco_oferta | moeda }}
+                    </td>
+                    <td class="price-col-club" style="font-size: 1.15rem;">
+                        {{ 'R$ ' ~ (oferta.preco_club | moeda) if oferta.preco_club else '—' }}
+                    </td>
+                    <td style="text-align: right;" onclick="event.stopPropagation()">
+                        <div style="display: flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap;">
+                            <a href="{{ url_for('cartaz', id=oferta.id, tipo='a4') }}"
+                               target="_blank" class="btn-sm btn-print" title="Imprimir A4">
+                               🖨️ A4
+                            </a>
+                            <a href="{{ url_for('cartaz', id=oferta.id, tipo='pequeno') }}"
+                               target="_blank" class="btn-sm btn-info" title="Imprimir Pequeno">
+                               🖨️ Peq
+                            </a>
+                            <a href="#" onclick="event.preventDefault();previewCartaz({{ oferta.id }}, 'a4')"
+                               class="btn-sm btn-secondary" title="Preview">👁️</a>
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6" class="empty-state">
+                        <span class="empty-state-icon">📭</span>
+                        <span class="empty-state-title">Nenhuma oferta encontrada</span>
+                        <span class="empty-state-hint">Tente outra data ou aguarde o cadastro pela Matriz.</span>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        {% if total_pages > 1 %}
+        <div class="pagination" style="padding:1rem 1.25rem;">
+            {% if page > 1 %}
+                <a href="{{ url_for('index', data=data_selecionada, page=page-1, ativas_apenas=1 if ativas_apenas else 0, busca=busca) }}" class="page-link">&laquo; Anterior</a>
+            {% endif %}
+
+            {% for p in range(1, total_pages + 1) %}
+                {% if p == page %}
+                    <span class="page-link active">{{ p }}</span>
+                {% elif p <= 2 or p > total_pages - 2 or (p >= page - 2 and p <= page + 2) %}
+                    <a href="{{ url_for('index', data=data_selecionada, page=p, ativas_apenas=1 if ativas_apenas else 0, busca=busca) }}" class="page-link">{{ p }}</a>
+                {% elif p == page - 3 or p == page + 3 %}
+                    <span class="page-link dots">...</span>
+                {% endif %}
+            {% endfor %}
+
+            {% if page < total_pages %}
+                <a href="{{ url_for('index', data=data_selecionada, page=page+1, ativas_apenas=1 if ativas_apenas else 0, busca=busca) }}" class="page-link">Próxima &raquo;</a>
+            {% endif %}
+        </div>
+        {% endif %}
+    </form>
+</div>
+
+<div id="preview-modal" class="modal-overlay no-print" style="display:none;z-index:99998;">
+    <div class="modal-box" style="max-width:90%;width:800px;">
+        <div class="modal-header">
+            <h3>Preview do Cartaz</h3>
+            <button class="modal-close-btn" onclick="closePreview()">&times;</button>
+        </div>
+        <div class="modal-body" style="text-align:center;min-height:400px;overflow:auto;">
+            <iframe id="preview-iframe" style="border:none;transform:scale(0.4);transform-origin:top left;width:525px;height:742px;" sandbox="allow-scripts"></iframe>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-sm btn-secondary" onclick="closePreview()">Fechar</button>
+            <a id="preview-print-link" href="#" target="_blank" class="btn-sm btn-print">🖨️ Abrir para Imprimir</a>
+        </div>
+    </div>
+</div>
+
+<script>
+var sortOrder = {};
+function sortTable(col) {
+    var table = document.getElementById('ofertas-table');
+    var tbody = table.querySelector('tbody');
+    var rows = Array.from(tbody.querySelectorAll('tr'));
+    if (!rows.length || (rows.length === 1 && rows[0].querySelector('td[colspan]'))) return;
+    var dir = sortOrder[col] === 'asc' ? 'desc' : 'asc';
+    sortOrder[col] = dir;
+    rows.sort(function(a, b) {
+        var cellA = a.children[col] ? a.children[col].innerText.trim() : '';
+        var cellB = b.children[col] ? b.children[col].innerText.trim() : '';
+        var numA = parseFloat(cellA.replace('R$', '').replace(/\./g,'').replace(',','.'));
+        var numB = parseFloat(cellB.replace('R$', '').replace(/\./g,'').replace(',','.'));
+        if (!isNaN(numA) && !isNaN(numB)) {
+            return dir === 'asc' ? numA - numB : numB - numA;
+        }
+        return dir === 'asc' ? cellA.localeCompare(cellB) : cellB.localeCompare(cellA);
+    });
+    rows.forEach(function(r) { tbody.appendChild(r); });
+    var indicators = table.querySelectorAll('.sort-indicator');
+    indicators.forEach(function(i) { i.textContent = '⇅'; });
+    var header = table.querySelectorAll('th')[col];
+    if (header) header.querySelector('.sort-indicator').textContent = dir === 'asc' ? '▲' : '▼';
+}
+
+function previewCartaz(id, tipo) {
+    var url = '{{ url_for("cartaz", id=0, tipo="a4") }}'.replace('/cartaz/0/', '/cartaz/' + id + '/').replace('tipo=a4', 'tipo=' + tipo);
+    document.getElementById('preview-iframe').src = url;
+    document.getElementById('preview-print-link').href = url;
+    document.getElementById('preview-modal').style.display = 'flex';
+}
+
+function closePreview() {
+    document.getElementById('preview-modal').style.display = 'none';
+    document.getElementById('preview-iframe').src = '';
+}
+
+function toggleSelectAllOffers(master) {
+    const cbs = document.querySelectorAll('.offer-cb');
+    cbs.forEach(cb => cb.checked = master.checked);
+}
+
+function updateMasterCb() {
+    const cbs = Array.from(document.querySelectorAll('.offer-cb'));
+    const master = document.getElementById('select-all-offers');
+    if (!master || cbs.length === 0) return;
+    master.checked = cbs.every(cb => cb.checked);
+    master.indeterminate = !master.checked && cbs.some(cb => cb.checked);
+}
+
+function toggleRowCheckbox(e, tr) {
+    if (e.target.tagName === 'A' || e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT') return;
+    const cb = tr.querySelector('.offer-cb');
+    if (cb) {
+        cb.checked = !cb.checked;
+        updateMasterCb();
+    }
+}
+
+function checkBatchSelection() {
+    const isAnyChecked = Array.from(document.querySelectorAll('.offer-cb')).some(cb => cb.checked);
+    if (!isAnyChecked) {
+        showConfirmModal('Nenhuma oferta selecionada', 'Por favor, selecione pelo menos uma oferta para imprimir em lote.', function(){});
+        return false;
+    }
+    return true;
+}
+</script>
+
+{% endblock %}
